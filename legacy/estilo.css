@@ -1,0 +1,345 @@
+/* ============================================================
+   PunçãoAcad – Folha de Estilos
+   Inspirado no design: laje-lisa.vercel.app
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --azul:          #3b5bdb;
+    --azul-hover:    #2f4ac5;
+    --azul-claro:    #e8eeff;
+    --azul-borda:    #c5d0f5;
+    --azul-icone:    #4263eb;
+    --fundo-top:     #dde8ff;
+    --fundo-bot:     #f0f4ff;
+    --card-bg:       #ffffff;
+    --label:         #374151;
+    --placeholder:   #9ca3af;
+    --borda-input:   #d1d5db;
+    --borda-focus:   #3b5bdb;
+    --texto:         #1f2937;
+    --subtitulo:     #6b7280;
+    --sombra-card:   0 2px 12px rgba(59,91,219,0.10);
+    --sombra-hover:  0 6px 24px rgba(59,91,219,0.16);
+    --raio-card:     16px;
+    --raio-input:    10px;
+    --verde:         #087f5b;
+    --verde-bg:      #ebfbf0;
+    --verde-borda:   #8ce99a;
+    --vermelho:      #c92a2a;
+    --vermelho-bg:   #fff5f5;
+    --vermelho-borda:#ffa8a8;
+    --amarelo:       #7c5c00;
+    --amarelo-bg:    #fff9db;
+    --amarelo-borda: #ffe066;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    color: var(--texto);
+    min-height: 100vh;
+    background: linear-gradient(160deg, var(--fundo-top) 0%, var(--fundo-bot) 60%, #f8f9ff 100%);
+    padding-bottom: 60px;
+}
+
+/* ── Cabeçalho ── */
+header {
+    text-align: center;
+    padding: 44px 20px 32px;
+}
+
+.header-icone {
+    font-size: 2.4rem;
+    display: inline-block;
+    background: var(--azul-claro);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 14px rgba(59,91,219,0.15);
+}
+
+header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+}
+
+header p.subtitulo {
+    font-size: 0.90rem;
+    color: var(--subtitulo);
+    font-weight: 400;
+    max-width: 460px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+/* ── Container ── */
+.container {
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+/* ── Cards ── */
+.card {
+    background: var(--card-bg);
+    border-radius: var(--raio-card);
+    box-shadow: var(--sombra-card);
+    margin-bottom: 16px;
+    border: 1px solid rgba(59,91,219,0.08);
+    transition: box-shadow 0.2s;
+}
+
+.card:hover { box-shadow: var(--sombra-hover); }
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.card-header .icone-secao {
+    font-size: 1.2rem;
+    background: var(--azul-claro);
+    color: var(--azul-icone);
+    border-radius: 8px;
+    padding: 5px 8px;
+    line-height: 1;
+}
+
+.card-header h2 {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--azul-icone);
+}
+
+.card-body { padding: 20px 22px 22px; }
+
+/* ── Grupos de campo ── */
+.campo-grupo { margin-bottom: 16px; }
+.campo-grupo:last-child { margin-bottom: 0; }
+
+.campo-grupo > label,
+.campo-label {
+    display: block;
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--label);
+    margin-bottom: 7px;
+    line-height: 1.35;
+}
+
+/* ── Inputs e selects ── */
+input[type="number"],
+select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--borda-input);
+    border-radius: var(--raio-input);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+input[type="number"]::placeholder { color: var(--placeholder); font-weight: 300; }
+
+input[type="number"]:focus,
+select:focus {
+    border-color: var(--borda-focus);
+    box-shadow: 0 0 0 3px rgba(59,91,219,0.13);
+}
+
+/* ── Grids ── */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: end;
+}
+.grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    align-items: end;
+}
+
+/* Garante que inputs dentro de grid fiquem na mesma linha base */
+.grid-2 .campo-grupo,
+.grid-3 .campo-grupo {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+/* ── Radio buttons ── */
+.radio-grupo { display: flex; gap: 10px; margin-bottom: 16px; }
+
+.radio-opcao {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--borda-input);
+    border-radius: var(--raio-input);
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--subtitulo);
+    transition: border-color 0.18s, background 0.18s, color 0.18s;
+    user-select: none;
+}
+
+.radio-opcao:has(input:checked) {
+    border-color: var(--azul);
+    background: var(--azul-claro);
+    color: var(--azul);
+}
+
+.radio-opcao input[type="radio"] {
+    accent-color: var(--azul);
+    width: 15px; height: 15px; flex-shrink: 0;
+}
+
+/* ── Divisor e subtítulo interno ── */
+.divisor { border: none; border-top: 1px solid #f0f2f8; margin: 16px 0; }
+
+.sub-titulo {
+    font-size: 0.73rem;
+    font-weight: 600;
+    color: var(--azul-icone);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 12px;
+}
+
+/* ── Botão calcular ── */
+.btn-calcular {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--azul) 0%, #5c7cfa 100%);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: none;
+    border-radius: var(--raio-input);
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(59,91,219,0.35);
+    transition: transform 0.15s, box-shadow 0.18s;
+    margin-bottom: 16px;
+}
+
+.btn-calcular:hover {
+    background: linear-gradient(135deg, var(--azul-hover) 0%, #4c6ef5 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(59,91,219,0.38);
+}
+
+.btn-calcular:active { transform: translateY(0); }
+
+/* ── Card de resultados ── */
+#card-resultados { display: none; }
+
+#resultados { animation: slideUp 0.35s ease; }
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+#resultados h2 {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--azul-icone);
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--azul-borda);
+}
+
+#resultados h3 {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--subtitulo);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 18px 0 8px;
+}
+
+/* ── Tabela de resultados ── */
+.tabela-resultado {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+    margin-bottom: 8px;
+}
+
+.tabela-resultado tr:nth-child(even) td { background: #f8f9ff; }
+
+.tabela-resultado td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f2f8;
+}
+
+.tabela-resultado td:first-child {
+    color: var(--subtitulo);
+    width: 62%;
+}
+
+.tabela-resultado td:last-child {
+    font-weight: 600;
+    color: var(--azul);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.tabela-resultado tr:last-child td { border-bottom: none; }
+
+/* ── Badges ── */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    margin: 6px 0 2px;
+}
+
+.badge-ok      { background: var(--verde-bg);    color: var(--verde);    border: 1px solid var(--verde-borda);    }
+.badge-erro    { background: var(--vermelho-bg); color: var(--vermelho); border: 1px solid var(--vermelho-borda); }
+.badge-aviso   { background: var(--amarelo-bg);  color: var(--amarelo);  border: 1px solid var(--amarelo-borda);  }
+
+/* ── Rodapé ── */
+footer {
+    text-align: center;
+    padding: 28px 16px 16px;
+    color: var(--subtitulo);
+    font-size: 0.80rem;
+}
+
+/* ── Responsividade ── */
+@media (max-width: 480px) {
+    header h1        { font-size: 1.5rem; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .radio-grupo     { flex-direction: column; }
+    .container       { padding: 0 12px; }
+}
