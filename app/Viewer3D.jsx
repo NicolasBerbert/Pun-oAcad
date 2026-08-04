@@ -6,7 +6,7 @@ const { useRef, useEffect, useState, useMemo } = React;
 //  Viewer3D — Three.js engineering visualization
 // ============================================================
 // Props:
-//   data: { secao, C1, C2, diam, h, cobrimento, phiw_x/y, phi_lx/y, s_x/y,
+//   data: { secao, C1, C2, diam, h, cobrimento, camadaExterna, phi_lx/y, s_x/y,
 //           Fsk, Mxk, Myk, studs: {phi, nconec, ncam} | null, d, dx, dy }
 //   view: '3d' | 'planta' | 'corteX' | 'corteY'
 //   layers: { concreto, armadura, studs, perimetros, forcas, cone }
@@ -190,7 +190,7 @@ function rebuild(s, data, layers, highlight) {
 
   if (!data) return;
 
-  const { secao, C1, C2, diam, h, cobrimento, phiw_x, phiw_y, phi_lx, phi_ly, s_x, s_y, Fsk, Mxk, Myk, studs, dx, dy, d } = data;
+  const { secao, C1, C2, diam, h, cobrimento, camadaExterna, phi_lx, phi_ly, s_x, s_y, Fsk, Mxk, Myk, studs, dx, dy, d } = data;
 
   // pick sensible defaults so it's always informative
   const _C1 = secao === 'circular' ? (diam || 50) : (C1 || 40);
@@ -335,15 +335,16 @@ function rebuild(s, data, layers, highlight) {
     const sx = s_x || 15;
     const sy = s_y || 15;
     const c = cobrimento || 2.5;
-    const phiwx = (phiw_x || 6.3) / 10;
-    const phiwy = (phiw_y || 6.3) / 10;
+    // Camada externa encosta no cobrimento; a interna desce uma bitola inteira.
+    const extY = camadaExterna !== 'x';
+    const phiExt = extY ? phiLy : phiLx;
 
     const matSteel = new THREE.MeshPhysicalMaterial({
       color: 0x99a4b3, roughness: 0.32, metalness: 0.7,
     });
 
     // bars in x direction (running along x-axis, spaced along z)
-    const yBarX = slabT - c - phiwx - phiLx / 2;
+    const yBarX = extY ? slabT - c - phiExt - phiLx / 2 : slabT - c - phiLx / 2;
     for (let z = -slabL / 2 + sy; z < slabL / 2; z += sy) {
       const g = new THREE.CylinderGeometry(phiLx / 2, phiLx / 2, slabW * 0.98, 8);
       const m = new THREE.Mesh(g, matSteel);
@@ -353,7 +354,7 @@ function rebuild(s, data, layers, highlight) {
       rebarGroup.add(m);
     }
     // bars in y direction (running along z-axis, spaced along x)
-    const yBarY = slabT - c - phiwy - phiLy / 2 - phiLx; // layer below x
+    const yBarY = extY ? slabT - c - phiLy / 2 : slabT - c - phiExt - phiLy / 2;
     for (let x = -slabW / 2 + sx; x < slabW / 2; x += sx) {
       const g = new THREE.CylinderGeometry(phiLy / 2, phiLy / 2, slabL * 0.98, 8);
       const m = new THREE.Mesh(g, matSteel);

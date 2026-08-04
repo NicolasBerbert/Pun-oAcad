@@ -5,18 +5,23 @@ const { useState, useEffect, useMemo, useRef } = React;
 //  App — main composition
 // ============================================================
 
+// Caso de referência: "Atividade 1 — punção em pilar centrado com momentos
+// nas duas direções" (Programa Master PEC IBRACON). Abrir o app já reproduz
+// o exercício resolvido, permitindo conferir todas as etapas.
 const DEFAULT_DATA = {
   secao: 'retangular',
   posicao: 'centro',
   C1: 40, C2: 25, diam: null,
-  Fsk: 185, Mxk: 8100, Myk: 5400,
-  h: 17, fck: 40, fyk: 500,
+  Fsk: 435, Mxk: 18300, Myk: 13400,
+  h: 17, fck: 35, fyk: 500,
   cobrimento: 2.5,
-  phiw_x: 6.3, phiw_y: 6.3,
+  camadaExterna: 'y',
   phi_lx: 12.5, s_x: 15,
   phi_ly: 12.5, s_y: 15,
   studs: null,
-  tipoArm: 'conector',
+  tipoArm: 'estribo',
+  espac: null,
+  u3_manual: null,
 };
 
 const STEP_TITLES = ['Pilar', 'Cargas', 'Laje', 'Armaduras', 'Studs', 'Resultados'];
@@ -45,14 +50,17 @@ function App() {
 
   const set = (patch) => setData(d => ({ ...d, ...patch }));
 
-  // Derived geometry (for helper diagrams that need d/dx/dy live)
+  // Derived geometry (for helper diagrams that need d/dx/dy live).
+  // Mesma convenção de camadas sobrepostas usada em calc.js.
   const derived = useMemo(() => {
-    const { h, cobrimento, phiw_x, phiw_y, phi_lx, phi_ly } = data;
-    if (![h, cobrimento, phiw_x, phiw_y, phi_lx, phi_ly].every(v => Number.isFinite(v) && v > 0)) return { h };
-    const dx = h - cobrimento - (phiw_x/10) - (phi_lx/10)/2;
-    const dy = h - cobrimento - (phiw_y/10) - (phi_ly/10)/2;
+    const { h, cobrimento, phi_lx, phi_ly, camadaExterna } = data;
+    if (![h, cobrimento, phi_lx, phi_ly].every(v => Number.isFinite(v) && v > 0)) return { h };
+    const lx = phi_lx / 10, ly = phi_ly / 10;
+    const extY = camadaExterna !== 'x';
+    const dy = extY ? h - cobrimento - ly/2 : h - cobrimento - lx - ly/2;
+    const dx = extY ? h - cobrimento - ly - lx/2 : h - cobrimento - lx/2;
     return { h, dx, dy, d: (dx + dy) / 2 };
-  }, [data.h, data.cobrimento, data.phiw_x, data.phiw_y, data.phi_lx, data.phi_ly]);
+  }, [data.h, data.cobrimento, data.phi_lx, data.phi_ly, data.camadaExterna]);
 
   // Validate per-field errors (light)
   const errs = useMemo(() => {
@@ -75,11 +83,13 @@ function App() {
       Fsk: data.Fsk, Mxk: data.Mxk, Myk: data.Myk,
       h: data.h, fck: data.fck, fyk: data.fyk,
       cobrimento: data.cobrimento,
-      phiw_x: data.phiw_x, phiw_y: data.phiw_y,
+      camadaExterna: data.camadaExterna || 'y',
       phi_lx: data.phi_lx, phi_ly: data.phi_ly,
       s_x: data.s_x, s_y: data.s_y,
       studs: data.studs?.phi && data.studs?.nconec && data.studs?.ncam ? data.studs : null,
-      tipoArm: data.tipoArm || 'conector',
+      tipoArm: data.tipoArm || 'estribo',
+      espac: data.espac || null,
+      u3_manual: data.u3_manual || null,
     });
     setResults(R);
     setCalculated(true);

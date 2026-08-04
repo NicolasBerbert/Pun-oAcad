@@ -16,13 +16,17 @@ const HELP = {
   fck: { title: 'fck', body: 'Resistência característica do concreto à compressão (MPa). Define a classe (C20–C90).', ref: 'NBR 6118 · 8.2.8' },
   fyk: { title: 'fyk', body: 'Resistência característica de escoamento do aço passivo (MPa). CA-50 → 500 MPa.', ref: 'NBR 6118 · 8.3.6' },
   cobrimento: { title: 'Cobrimento c', body: 'Espessura do cobrimento nominal das armaduras (cm). Mínimo função do ambiente (CAA).', ref: 'NBR 6118 · 7.4.7' },
-  phiw: { title: 'Estribo Øw', body: 'Diâmetro do estribo (armadura transversal de flexão) em mm.', ref: 'NBR 6118 · 18.4.3' },
+  camadaExterna: { title: 'Camada externa', body: 'Qual das duas malhas de flexão fica mais próxima da face tracionada (topo, sobre o pilar). A direção externa tem a maior altura útil; a interna desce uma bitola inteira: d_int = h − c − Ø_ext − Ø_int/2.', ref: 'NBR 6118 · 20.1' },
   phil: { title: 'Barra de flexão Øl', body: 'Diâmetro da barra longitudinal de flexão da laje em mm.', ref: 'NBR 6118 · 20.1' },
   s: { title: 'Espaçamento s', body: 'Espaçamento entre barras de flexão na direção considerada (cm).', ref: 'NBR 6118 · 20.1' },
   stud_phi: { title: 'Diâmetro do conector', body: 'Diâmetro do conector de cisalhamento (stud) em mm. Limite Ø ≤ h/20.', ref: 'NBR 6118 · 19.4.2' },
   nconec: { title: 'Conectores por camada', body: 'Quantidade de studs em cada camada radial (geralmente 8 ou 12).', ref: 'NBR 6118 · 19.5.3.3' },
   ncam: { title: 'Número de camadas', body: 'Quantidade de camadas radiais de studs ao redor do pilar.', ref: 'NBR 6118 · 19.5.3.3' },
-  tipoArm: { title: 'Tipo de armadura de punção', body: 'Define a base de fywd: conector (stud) → 300 MPa; estribo → 250 MPa, para h ≤ 15 cm, interpolando linearmente até 435 MPa quando h ≥ 35 cm.', ref: 'NBR 6118 · 19.4.2' },
+  tipoArm: { title: 'Tipo de armadura de punção', body: 'Define a base de fywd: estribo → 250 MPa; conector (stud) → 300 MPa, para h ≤ 15 cm, interpolando linearmente até 435 MPa quando h ≥ 35 cm.', ref: 'NBR 6118 · 19.4.2' },
+  s0: { title: 'Espaçamento s₀ adotado', body: 'Distância da face do pilar à primeira camada de armadura. Limite: s₀ ≤ 0,5·d. Na prática arredonda-se o limite para baixo.', ref: 'NBR 6118 · 19.5.3.3' },
+  sr: { title: 'Espaçamento radial sr adotado', body: 'Distância entre camadas sucessivas de armadura. Limite: sr ≤ 0,75·d. Entra diretamente no termo 1,5·(d/sr) de τRd3.', ref: 'NBR 6118 · 19.5.3.3' },
+  se: { title: 'Espaçamento se adotado', body: 'Distância entre conectores ao longo de um mesmo contorno. Limite: se ≤ 2·d.', ref: 'NBR 6118 · 19.5.3.3' },
+  u3: { title: 'Perímetro u₃ medido', body: 'Perímetro do contorno C″, a 2d além da última camada de armadura. O app calcula u₃ = u₁ + 2π·(2d + p) com cantos arredondados; se você mediu o contorno poligonal em CAD, informe o valor medido aqui.', ref: 'NBR 6118 · 19.5.3.4' },
 };
 
 function HelpDot({ k }) {
@@ -231,20 +235,29 @@ function StepLaje({ data, set, active, onActivate, setFocused, errs }) {
 
 // ── Step 4: Armaduras ─────────────────────────────────────
 function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derived }) {
+  const extY = data.camadaExterna !== 'x';
   const summary = [
     { lbl: 'c', val: `${data.cobrimento || '—'} cm` },
-    { lbl: 'Øw', val: `${data.phiw_x || '—'} / ${data.phiw_y || '—'} mm` },
+    { lbl: 'Externa', val: extY ? 'dir. y' : 'dir. x' },
     { lbl: 'Øℓx', val: `Ø${data.phi_lx || '—'} @ ${data.s_x || '—'}` },
     { lbl: 'Øℓy', val: `Ø${data.phi_ly || '—'} @ ${data.s_y || '—'}` },
   ];
   return (
     <StepCard n={4} title="Armaduras da laje" active={active} done={isStepDone(4, data)} summary={summary} onClick={onActivate}>
       <div>
-        <div className="subhead">Cobrimento</div>
-        <div className="grid-3">
+        <div className="subhead">Cobrimento e ordem das camadas</div>
+        <div className="grid-2">
           <Field label="Cobrimento c" helpKey="cobrimento" value={data.cobrimento} onChange={v => set({ cobrimento: v })} onFocus={() => setFocused('cobrimento')} placeholder="2,5" step="0.1" suffix="cm" error={errs.cobrimento} />
-          <Field label="Estribo Ø<sub>w,x</sub>" helpKey="phiw" value={data.phiw_x} onChange={v => set({ phiw_x: v })} onFocus={() => setFocused('phiw_x')} options={BITOLA_ESTRIBO} error={errs.phiw_x} />
-          <Field label="Estribo Ø<sub>w,y</sub>" helpKey="phiw" value={data.phiw_y} onChange={v => set({ phiw_y: v })} onFocus={() => setFocused('phiw_y')} options={BITOLA_ESTRIBO} error={errs.phiw_y} />
+          <div className="campo-grupo">
+            <label className="field-label">
+              <span>Camada externa (mais próxima do topo)</span>
+              <HelpDot k="camadaExterna" />
+            </label>
+            <select className="select" value={extY ? 'y' : 'x'} onChange={e => set({ camadaExterna: e.target.value })} onFocus={() => setFocused('camadaExterna')}>
+              <option value="y">Direção y — dy é a maior</option>
+              <option value="x">Direção x — dx é a maior</option>
+            </select>
+          </div>
         </div>
       </div>
       <div>
@@ -262,10 +275,14 @@ function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derive
         </div>
       </div>
       <div className="helper">
-        <HelperArmaduras h={data.h} cobrimento={data.cobrimento} phiw_x={data.phiw_x} phiw_y={data.phiw_y} phi_lx={data.phi_lx} phi_ly={data.phi_ly} dx={derived?.dx} dy={derived?.dy} />
+        <HelperArmaduras h={data.h} cobrimento={data.cobrimento} camadaExterna={extY ? 'y' : 'x'} phi_lx={data.phi_lx} phi_ly={data.phi_ly} dx={derived?.dx} dy={derived?.dy} />
         <div className="lbl">
-          <b>Sequência de camadas:</b> cobrimento → estribo x → barra x → estribo y → barra y.<br/>
-          A altura útil <b>d</b> = (dx + dy)/2 ={' '}
+          <b>Sequência de camadas:</b> cobrimento → barra {extY ? 'y' : 'x'} (externa) → barra {extY ? 'x' : 'y'} (interna).<br/>
+          d<sub>{extY ? 'y' : 'x'}</sub> = h − c − Ø<sub>ℓ{extY ? 'y' : 'x'}</sub>/2 ={' '}
+          <span className="mono" style={{color: 'var(--blue-900)', fontWeight: 600}}>{derived?.[extY ? 'dy' : 'dx'] ? derived[extY ? 'dy' : 'dx'].toFixed(2) : '—'} cm</span> ·{' '}
+          d<sub>{extY ? 'x' : 'y'}</sub> = h − c − Ø<sub>ℓ{extY ? 'y' : 'x'}</sub> − Ø<sub>ℓ{extY ? 'x' : 'y'}</sub>/2 ={' '}
+          <span className="mono" style={{color: 'var(--blue-900)', fontWeight: 600}}>{derived?.[extY ? 'dx' : 'dy'] ? derived[extY ? 'dx' : 'dy'].toFixed(2) : '—'} cm</span><br/>
+          A altura útil média <b>d</b> = (d<sub>x</sub> + d<sub>y</sub>)/2 ={' '}
           <span className="mono" style={{color: 'var(--blue-900)', fontWeight: 600}}>{derived?.d ? derived.d.toFixed(2) : '—'} cm</span>.
         </div>
       </div>
@@ -282,12 +299,39 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
   const phiMax = derived?.h ? (derived.h / 2) : null; // Ø ≤ h/20 in mm: h/20*10
   const phiMaxMm = derived?.h ? (derived.h * 10 / 20) : null;
 
-  // fywd ao vivo (item 19.4.2): base 300 (conector) ou 250 (estribo) → 435 MPa
+  // fywd ao vivo (item 19.4.2): base 250 (estribo) ou 300 (conector) → 435 MPa
   const fywdBase = tipoArm === 'estribo' ? 250 : 300;
   const hLaje = derived?.h;
   const fywdLive = hLaje
     ? (hLaje <= 15 ? fywdBase : hLaje >= 35 ? 435 : fywdBase + (hLaje - 15) * (435 - fywdBase) / 20)
     : null;
+
+  // Espaçamentos: limites e valores adotados
+  const dd = derived?.d;
+  const lim = {
+    s0: dd ? (0.5 * dd).toFixed(2) : '',
+    sr: dd ? (0.75 * dd).toFixed(2) : '',
+    se: dd ? (2 * dd).toFixed(2) : '',
+  };
+  const esp = data.espac || {};
+  const setEsp = (k, v) => {
+    const next = { ...esp, [k]: v === '' ? null : v };
+    const vazio = !Number.isFinite(next.s0) && !Number.isFinite(next.sr) && !Number.isFinite(next.se);
+    set({ espac: vazio ? null : next });
+  };
+  const erroS0 = dd && esp.s0 > 0.5 * dd ? `Excede 0,5·d = ${lim.s0} cm` : null;
+  const erroSr = dd && esp.sr > 0.75 * dd ? `Excede 0,75·d = ${lim.sr} cm` : null;
+  const erroSe = dd && esp.se > 2 * dd ? `Excede 2·d = ${lim.se} cm` : null;
+
+  // p e u3 ao vivo
+  const s0Eff = Number.isFinite(esp.s0) && esp.s0 > 0 ? esp.s0 : (dd ? 0.5 * dd : null);
+  const srEff = Number.isFinite(esp.sr) && esp.sr > 0 ? esp.sr : (dd ? 0.75 * dd : null);
+  const ncam = data.studs?.ncam;
+  const pDist = s0Eff && srEff && ncam >= 1 ? s0Eff + (ncam - 1) * srEff : null;
+  const u1Live = data.secao === 'circular'
+    ? (data.diam > 0 ? Math.PI * data.diam : null)
+    : (data.C1 > 0 && data.C2 > 0 ? 2 * (data.C1 + data.C2) : null);
+  const u3calc = u1Live && dd && pDist ? u1Live + 2 * Math.PI * (2 * dd + pDist) : null;
 
   return (
     <StepCard n={5} title="Armadura de punção" active={active} done={!!data.studs?.phi && active === false} locked={locked && !active} summary={summary} onClick={onActivate}>
@@ -342,18 +386,31 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
         />
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 8, fontSize: 11.5, color: 'var(--slate-600)'}}>
-        <div style={{background:'var(--paper-2)', padding:'8px 10px', borderRadius: 6, border:'1px solid var(--line)'}}>
-          <div style={{color:'var(--slate-500)', fontSize: 10.5, textTransform:'uppercase', letterSpacing: '0.06em', marginBottom: 2}}>s₀ ≤ 0,5·d</div>
-          <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{derived?.d ? (0.5*derived.d).toFixed(2) : '—'} cm</span>
+      <div>
+        <div className="subhead">Espaçamentos — limite normativo e valor adotado</div>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 8, fontSize: 11.5, color: 'var(--slate-600)', marginBottom: 8}}>
+          <LimiteChip titulo="s₀ ≤ 0,5·d" val={derived?.d ? 0.5*derived.d : null} />
+          <LimiteChip titulo="sr ≤ 0,75·d" val={derived?.d ? 0.75*derived.d : null} />
+          <LimiteChip titulo="se ≤ 2·d" val={derived?.d ? 2*derived.d : null} />
         </div>
-        <div style={{background:'var(--paper-2)', padding:'8px 10px', borderRadius: 6, border:'1px solid var(--line)'}}>
-          <div style={{color:'var(--slate-500)', fontSize: 10.5, textTransform:'uppercase', letterSpacing: '0.06em', marginBottom: 2}}>sr ≤ 0,75·d</div>
-          <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{derived?.d ? (0.75*derived.d).toFixed(2) : '—'} cm</span>
+        <div className="grid-3">
+          <Field label="s<sub>0</sub> adotado" helpKey="s0" value={esp.s0} onChange={v => setEsp('s0', v)} onFocus={() => setFocused('s0')} placeholder={lim.s0} step="0.5" suffix="cm" error={erroS0} />
+          <Field label="s<sub>r</sub> adotado" helpKey="sr" value={esp.sr} onChange={v => setEsp('sr', v)} onFocus={() => setFocused('sr')} placeholder={lim.sr} step="0.5" suffix="cm" error={erroSr} />
+          <Field label="s<sub>e</sub> adotado" helpKey="se" value={esp.se} onChange={v => setEsp('se', v)} onFocus={() => setFocused('se')} placeholder={lim.se} step="0.5" suffix="cm" error={erroSe} />
         </div>
-        <div style={{background:'var(--paper-2)', padding:'8px 10px', borderRadius: 6, border:'1px solid var(--line)'}}>
-          <div style={{color:'var(--slate-500)', fontSize: 10.5, textTransform:'uppercase', letterSpacing: '0.06em', marginBottom: 2}}>se = 2·d</div>
-          <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{derived?.d ? (2*derived.d).toFixed(2) : '—'} cm</span>
+        <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
+          Em branco, adota-se o próprio limite. p (pilar → última camada) = s₀ + (n<sub>cam</sub>−1)·s<sub>r</sub> ={' '}
+          <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{pDist ? pDist.toFixed(2) + ' cm' : '—'}</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="subhead">Contorno C″ (opcional)</div>
+        <Field label="u<sub>3</sub> medido em CAD" helpKey="u3" value={data.u3_manual} onChange={v => set({ u3_manual: v === '' ? null : v })} onFocus={() => setFocused('u3')} placeholder={u3calc ? u3calc.toFixed(2) : 'calculado'} step="0.01" suffix="cm" />
+        <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
+          Em branco, usa-se u₃ = u₁ + 2π·(2d + p) ={' '}
+          <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{u3calc ? u3calc.toFixed(2) + ' cm' : '—'}</span>
+          {' '}(cantos arredondados). Um contorno poligonal medido em CAD resulta ligeiramente menor.
         </div>
       </div>
 
@@ -372,12 +429,21 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
   );
 }
 
+function LimiteChip({ titulo, val }) {
+  return (
+    <div style={{background:'var(--paper-2)', padding:'8px 10px', borderRadius: 6, border:'1px solid var(--line)'}}>
+      <div style={{color:'var(--slate-500)', fontSize: 10.5, textTransform:'uppercase', letterSpacing: '0.06em', marginBottom: 2}}>{titulo}</div>
+      <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{Number.isFinite(val) ? val.toFixed(2) : '—'} cm</span>
+    </div>
+  );
+}
+
 // ── helpers ───────────────────────────────────────────────
 function isStepDone(n, data) {
   if (n === 1) return data.posicao && ((data.secao === 'retangular' && data.C1 > 0 && data.C2 > 0) || (data.secao === 'circular' && data.diam > 0));
   if (n === 2) return Number.isFinite(data.Fsk) && data.Fsk !== 0;
   if (n === 3) return data.h > 0 && data.fck > 0 && data.fyk > 0;
-  if (n === 4) return data.cobrimento > 0 && data.phiw_x > 0 && data.phiw_y > 0 && data.phi_lx > 0 && data.phi_ly > 0 && data.s_x > 0 && data.s_y > 0;
+  if (n === 4) return data.cobrimento > 0 && data.phi_lx > 0 && data.phi_ly > 0 && data.s_x > 0 && data.s_y > 0;
   return false;
 }
 

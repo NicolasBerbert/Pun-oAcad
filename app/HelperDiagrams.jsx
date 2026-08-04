@@ -138,23 +138,26 @@ function HelperLaje({ h, fck }) {
 }
 
 // 4) Section showing rebar layer order with dx / dy
-function HelperArmaduras({ h, cobrimento, phiw_x, phiw_y, phi_lx, phi_ly, dx, dy }) {
+function HelperArmaduras({ h, cobrimento, camadaExterna, phi_lx, phi_ly, dx, dy }) {
   const W = 260, H = 150;
   const yTop = 14, yBot = 122;
   const slabH = yBot - yTop;
   const hcm = h || 20;
   const pxPerCm = slabH / hcm;
   const c = cobrimento || 2.5;
-  const wx = (phiw_x || 6.3) / 10;
-  const wy = (phiw_y || 6.3) / 10;
   const lx = (phi_lx || 12.5) / 10;
   const ly = (phi_ly || 12.5) / 10;
+  const extY = camadaExterna !== 'x';
 
+  // Camada externa encosta no cobrimento; a interna desce uma bitola inteira.
+  const phiExt = extY ? ly : lx;
+  const phiInt = extY ? lx : ly;
   const yCob = yTop + c * pxPerCm;
-  const yEstX = yCob + wx * pxPerCm;
-  const yBarX = yEstX + lx * pxPerCm / 2;
-  const yEstY = yEstX + lx * pxPerCm;
-  const yBarY = yEstY + wy * pxPerCm + ly * pxPerCm / 2;
+  const yBarExt = yCob + phiExt * pxPerCm / 2;
+  const yBarInt = yCob + (phiExt + phiInt / 2) * pxPerCm;
+  // A malha desenhada como linha contínua é a paralela ao corte (direção x)
+  const yBarX = extY ? yBarInt : yBarExt;
+  const yBarY = extY ? yBarExt : yBarInt;
 
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
@@ -172,31 +175,28 @@ function HelperArmaduras({ h, cobrimento, phiw_x, phiw_y, phi_lx, phi_ly, dx, dy
       <line x1="30" y1={yCob} x2="230" y2={yCob} stroke="#94a3b8" strokeDasharray="2 2" strokeWidth="0.6" />
       <text x="34" y={yCob - 2} fontSize="9" fill="#64748b" fontFamily="JetBrains Mono, monospace">c = {c} cm</text>
 
-      {/* Estribo x — small circles in profile */}
-      {[60, 100, 140, 180].map((x, i) => (
-        <circle key={`ex${i}`} cx={x} cy={yEstX} r={Math.max(1.5, wx * pxPerCm / 2)} fill="#99a4b3" stroke="#3b465a" strokeWidth="0.4" />
-      ))}
-      {/* Barra x — wide line */}
+      {/* Barra x — corte longitudinal (linha contínua) */}
       <line x1="32" y1={yBarX} x2="228" y2={yBarX} stroke="#99a4b3" strokeWidth={Math.max(1.5, lx * pxPerCm)} strokeLinecap="round" />
+      <text x="34" y={yBarX - Math.max(3, lx*pxPerCm/2) - 2} fontSize="7.5" fill="#64748b" fontFamily="JetBrains Mono, monospace">Øℓx</text>
 
-      {/* Estribo y — circles */}
-      {[60, 100, 140, 180].map((x, i) => (
-        <circle key={`ey${i}`} cx={x} cy={yEstY + wy*pxPerCm/2} r={Math.max(1.5, wy * pxPerCm / 2)} fill="#99a4b3" stroke="#3b465a" strokeWidth="0.4" opacity="0.7"/>
-      ))}
-      {/* Barra y — small circles (cross-section seen end-on) */}
+      {/* Barra y — vista de topo das seções (círculos) */}
       {[60, 100, 140, 180].map((x, i) => (
         <circle key={`by${i}`} cx={x} cy={yBarY} r={Math.max(1.8, ly * pxPerCm / 2)} fill="#7e8a9c" stroke="#3b465a" strokeWidth="0.4" />
       ))}
+      <text x="196" y={yBarY + 2.5} fontSize="7.5" fill="#64748b" fontFamily="JetBrains Mono, monospace">Øℓy</text>
 
-      {/* dx / dy dimensions */}
-      <line x1="248" y1={yTop} x2="248" y2={yBarX} stroke="#1d4499" strokeWidth="0.7" />
-      <line x1="245" y1={yTop} x2="251" y2={yTop} stroke="#1d4499" strokeWidth="0.7" />
-      <line x1="245" y1={yBarX} x2="251" y2={yBarX} stroke="#1d4499" strokeWidth="0.7" />
-      <text x="251" y={(yTop+yBarX)/2 + 3} fontSize="9" fill="#1d4499" fontFamily="JetBrains Mono, monospace">d</text>
-      <text x="251" y={(yTop+yBarX)/2 + 11} fontSize="7" fill="#1d4499" fontFamily="JetBrains Mono, monospace">x={dx ? dx.toFixed(1) : '—'}</text>
-      <text x="251" y={(yTop+yBarX)/2 + 19} fontSize="7" fill="#1d4499" fontFamily="JetBrains Mono, monospace">y={dy ? dy.toFixed(1) : '—'}</text>
+      {/* cotas dx / dy — medidas do topo até o centro de cada malha */}
+      <line x1="242" y1={yTop} x2="242" y2={yBarY} stroke="#1d4499" strokeWidth="0.7" />
+      <line x1="239" y1={yTop} x2="245" y2={yTop} stroke="#1d4499" strokeWidth="0.7" />
+      <line x1="239" y1={yBarY} x2="245" y2={yBarY} stroke="#1d4499" strokeWidth="0.7" />
+      <text x="246" y={yBarY} fontSize="7.5" fill="#1d4499" fontFamily="JetBrains Mono, monospace">dy={dy ? dy.toFixed(2) : '—'}</text>
+      <line x1="233" y1={yTop} x2="233" y2={yBarX} stroke="#1d4499" strokeWidth="0.7" strokeDasharray="2 1.5" />
+      <line x1="230" y1={yBarX} x2="236" y2={yBarX} stroke="#1d4499" strokeWidth="0.7" />
+      <text x="246" y={yBarX + 8} fontSize="7.5" fill="#1d4499" fontFamily="JetBrains Mono, monospace">dx={dx ? dx.toFixed(2) : '—'}</text>
 
-      <text x="34" y={yBot + 12} fontSize="10" fill="#64748b" fontFamily="Inter">Sequência das camadas (topo → base)</text>
+      <text x="34" y={yBot + 12} fontSize="10" fill="#64748b" fontFamily="Inter">
+        Camadas: externa = direção {extY ? 'y' : 'x'}
+      </text>
     </svg>
   );
 }
