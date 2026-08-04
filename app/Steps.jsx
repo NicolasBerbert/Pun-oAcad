@@ -23,8 +23,6 @@ const HELP = {
   nconec: { title: 'Conectores por camada', body: 'Quantidade de studs em cada camada radial (geralmente 8 ou 12).', ref: 'NBR 6118 · 19.5.3.3' },
   ncam: { title: 'Número de camadas', body: 'Quantidade de camadas radiais de studs ao redor do pilar.', ref: 'NBR 6118 · 19.5.3.3' },
   tipoArm: { title: 'Tipo de armadura de punção', body: 'Define a base de fywd: conector (stud) → 300 MPa; estribo → 250 MPa, para h ≤ 15 cm, interpolando linearmente até 435 MPa quando h ≥ 35 cm.', ref: 'NBR 6118 · 19.4.2' },
-  Nsd: { title: 'Força de compressão Nsd', body: 'Força axial de compressão de cálculo no plano da laje na direção considerada (ex.: protensão), atuante no contorno C′. Considerar as perdas de protensão.', ref: 'NBR 6118 · 19.5.3.2' },
-  Ac: { title: 'Área Ac', body: 'Área de concreto associada à força axial de compressão (seção transversal da faixa considerada), em cm².', ref: 'NBR 6118 · 19.5.3.2' },
 };
 
 function HelpDot({ k }) {
@@ -187,14 +185,7 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
     { lbl: 'Fsk', val: `${data.Fsk || '—'} kN` },
     { lbl: 'Mxk', val: `${data.Mxk || '—'} kN·cm` },
     { lbl: 'Myk', val: `${data.Myk || '—'} kN·cm` },
-    ...(data.protensao ? [{ lbl: 'σcp', val: 'protendida' }] : []),
   ];
-  const prot = data.protensao;
-  const sigOk = prot && prot.Ac > 0 && Number.isFinite(prot.Nsdx) && Number.isFinite(prot.Nsdy);
-  const sigcpx = sigOk ? 10 * prot.Nsdx / prot.Ac : null;
-  const sigcpy = sigOk ? 10 * prot.Nsdy / prot.Ac : null;
-  const desprezada = sigOk && (sigcpx <= 1 || sigcpy <= 1);
-  const sigcp = sigOk ? Math.min((sigcpx + sigcpy) / 2, 3.5) : null;
   return (
     <StepCard n={2} title="Carregamentos característicos" active={active} done={isStepDone(2, data)} summary={summary} onClick={onActivate}>
       <div className="grid-3">
@@ -202,36 +193,6 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
         <Field label="M<sub>xk</sub>" helpKey="Mxk" value={data.Mxk} onChange={v => set({ Mxk: v })} onFocus={() => setFocused('Mxk')} placeholder="8100" suffix="kN·cm" error={errs.Mxk} />
         <Field label="M<sub>yk</sub>" helpKey="Myk" value={data.Myk} onChange={v => set({ Myk: v })} onFocus={() => setFocused('Myk')} placeholder="5400" suffix="kN·cm" error={errs.Myk} />
       </div>
-
-      <div>
-        <div className="subhead">Protensão · compressão no plano da laje (opcional)</div>
-        <label style={{display:'flex', alignItems:'center', gap: 8, fontSize: 13, cursor:'pointer', marginBottom: 8}}>
-          <input
-            type="checkbox"
-            checked={!!data.protensao}
-            onChange={e => set({ protensao: e.target.checked ? { Nsdx: null, Nsdy: null, Ac: null } : null })}
-          />
-          Laje protendida — considerar o efeito favorável de σ<sub>cp</sub> em τ<sub>Rd1</sub> e τ<sub>Rd3</sub>
-        </label>
-        {prot && (
-          <>
-            <div className="grid-3">
-              <Field label="N<sub>sd,x</sub>" helpKey="Nsd" value={prot.Nsdx} onChange={v => set({ protensao: { ...prot, Nsdx: v } })} onFocus={() => setFocused('Nsdx')} placeholder="800" suffix="kN" />
-              <Field label="N<sub>sd,y</sub>" helpKey="Nsd" value={prot.Nsdy} onChange={v => set({ protensao: { ...prot, Nsdy: v } })} onFocus={() => setFocused('Nsdy')} placeholder="800" suffix="kN" />
-              <Field label="A<sub>c</sub>" helpKey="Ac" value={prot.Ac} onChange={v => set({ protensao: { ...prot, Ac: v } })} onFocus={() => setFocused('Ac')} placeholder="5100" suffix="cm²" />
-            </div>
-            {sigOk && (
-              <div className="callout" style={{marginTop: 8}}>
-                σ<sub>cp,x</sub> = {sigcpx.toFixed(2)} MPa · σ<sub>cp,y</sub> = {sigcpy.toFixed(2)} MPa → σ<sub>cp</sub> = min(média; 3,5) = <b>{sigcp.toFixed(2)} MPa</b>.{' '}
-                {desprezada
-                  ? <b>Efeito favorável desprezado: σcp ≤ 1 MPa em uma das direções (item 19.5.3.2).</b>
-                  : 'Será somado 0,10·σcp às tensões resistentes τRd1 e τRd3.'}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
       <div className="helper">
         <HelperCargas Fsk={data.Fsk} Mxk={data.Mxk} Myk={data.Myk} />
         <div className="lbl">

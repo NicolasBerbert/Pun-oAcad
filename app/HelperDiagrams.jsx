@@ -80,11 +80,11 @@ function HelperCargas({ Fsk, Mxk, Myk }) {
       {/* column box */}
       <polygon points={`${cx-14},${cy-40} ${cx+14},${cy-40} ${cx+22},${cy-32} ${cx-6},${cy-32} ${cx-6},${cy+18} ${cx-14},${cy+18}`} fill="#c4c8cf" stroke="#3b465a" strokeWidth="0.8" />
       <polygon points={`${cx-14},${cy-40} ${cx+14},${cy-40} ${cx+14},${cy+10} ${cx-14},${cy+10}`} fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
-      {/* Force Fsk */}
+      {/* Force Fsk — topo da seta limitado para não invadir a legenda */}
       {Fsk > 0 && (
         <g>
-          <line x1={cx} y1={cy-75*scaleF} x2={cx} y2={cy-44} stroke="#b42318" strokeWidth="2.4" markerEnd="url(#ahr)" />
-          <text x={cx+6} y={cy-58} fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
+          <line x1={cx} y1={Math.max(cy-75*scaleF, 22)} x2={cx} y2={cy-44} stroke="#b42318" strokeWidth="2.4" markerEnd="url(#ahr)" />
+          <text x={cx+6} y={Math.max(cy-75*scaleF, 22)+10} fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
         </g>
       )}
       {/* Moment Mxk — curved around x axis */}
@@ -101,7 +101,7 @@ function HelperCargas({ Fsk, Mxk, Myk }) {
           <text x="0" y="18" textAnchor="middle" fontSize="9" fill="#16a394" fontWeight="700" fontFamily="Inter">My</text>
         </g>
       )}
-      <text x="8" y="14" fontSize="10" fill="#64748b" fontFamily="Inter">Esforços no topo do pilar</text>
+      <text x="8" y={H-4} fontSize="10" fill="#64748b" fontFamily="Inter">Esforços no topo do pilar</text>
     </svg>
   );
 }

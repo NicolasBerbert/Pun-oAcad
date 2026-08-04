@@ -1,7 +1,7 @@
 // ============================================================
 //  PunçãoAcad — Rotina de Cálculo (pura, adaptada de script.js)
 //  ABNT NBR 6118:2023 — Pilar interno com momentos nas duas direções
-//  Seção retangular ou circular · protensão (σcp) · conector ou estribo
+//  Seção retangular ou circular · conector ou estribo
 // ============================================================
 
 // Interpolação do coeficiente K (tabela item 19.5.2.3) — pilar retangular
@@ -38,7 +38,6 @@ function calcularPuncao(inputs) {
     phi_ly, s_y,    // mm, cm
     studs,        // optional: { phi (mm), nconec, ncam }
     tipoArm,      // 'conector' (default) | 'estribo' — base de fywd (item 19.4.2)
-    protensao,    // optional: { Nsdx, Nsdy (kN), Ac (cm²) } → σcp (item 19.5.3.2)
   } = inputs;
 
   // Pilar circular interno tem tratamento próprio (item 19.5.2.3):
@@ -110,20 +109,6 @@ function calcularPuncao(inputs) {
   const roy = (qy * As1_y) / (dy * faixaY);
   const rho = Math.min(Math.sqrt(rox * roy), 0.02);
 
-  // Protensão — σcp (item 19.5.3.2): σcp,i = Nsd,i/Ac; média limitada a 3,5 MPa.
-  // Efeito favorável desprezado se σcp,x ≤ 1 MPa ou σcp,y ≤ 1 MPa.
-  let prot = null;
-  let sigcpEff = 0;
-  if (protensao && Number.isFinite(protensao.Nsdx) && Number.isFinite(protensao.Nsdy) &&
-      Number.isFinite(protensao.Ac) && protensao.Ac > 0) {
-    const sigcpx = 10 * protensao.Nsdx / protensao.Ac; // kN/cm² → MPa
-    const sigcpy = 10 * protensao.Nsdy / protensao.Ac;
-    const desprezada = sigcpx <= 1 || sigcpy <= 1;
-    const sigcp = Math.min((sigcpx + sigcpy) / 2, 3.5);
-    sigcpEff = desprezada ? 0 : sigcp;
-    prot = { Nsdx: protensao.Nsdx, Nsdy: protensao.Nsdy, Ac: protensao.Ac, sigcpx, sigcpy, sigcp, sigcpEff, desprezada };
-  }
-
   // ── Etapa 6 — Contorno C ─────────────────────────────────
   const alphaV = 1 - fck / 250;
   const tauRd2 = alphaV * fcd * 0.27;
@@ -147,7 +132,7 @@ function calcularPuncao(inputs) {
   // ke = (1 + √(20/d)) ≤ 2 (item 19.5.3.2)
   const ke_raw = 1 + Math.sqrt(20 / d);
   const fator_d = Math.min(ke_raw, 2);
-  const tauRd1 = 0.13 * fator_d * Math.pow(100 * rho * fck, 1/3) + 0.10 * sigcpEff;
+  const tauRd1 = 0.13 * fator_d * Math.pow(100 * rho * fck, 1/3);
   const verif2 = tauSd_Cl <= tauRd1;
   const precisaArm = !verif2;
 
@@ -165,7 +150,7 @@ function calcularPuncao(inputs) {
     // as demais camadas entram via 1,5·(d/sr) — item 19.5.3.3.
     const Asw = studs.nconec * As1c;
     const sr = sr_lim;
-    const term1 = 0.10 * fator_d * Math.pow(100 * rho * fck, 1/3) + 0.10 * sigcpEff;
+    const term1 = 0.10 * fator_d * Math.pow(100 * rho * fck, 1/3);
     // 1.5*(d/sr)*(Asw*fywd*sin90°)/(u2*d) — Asw em cm², fywd em MPa, u2,d em cm
     // (Asw[cm²]·fywd[MPa])/(u2·d[cm²]) → MPa. Multiplica por 1,5·(d/sr) (adim.).
     const term2 = 1.5 * (d / sr) * (Asw * fywd) / (u2 * d);
@@ -207,7 +192,6 @@ function calcularPuncao(inputs) {
     u1, u2,
     alphaV, tauRd2, tauSd_C, verif1,
     kx, ky, Wpx, Wpy, tauSd_Cl, tauRd1, verif2, precisaArm, fator_d, ke_raw,
-    prot, sigcpEff,
     s0_lim, sr_lim, se_lim,
     studs: studsOut, tauRd3, verif3,
     etapa9,

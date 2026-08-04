@@ -17,7 +17,6 @@ const DEFAULT_DATA = {
   phi_ly: 12.5, s_y: 15,
   studs: null,
   tipoArm: 'conector',
-  protensao: null,
 };
 
 const STEP_TITLES = ['Pilar', 'Cargas', 'Laje', 'Armaduras', 'Studs', 'Resultados'];
@@ -81,7 +80,6 @@ function App() {
       s_x: data.s_x, s_y: data.s_y,
       studs: data.studs?.phi && data.studs?.nconec && data.studs?.ncam ? data.studs : null,
       tipoArm: data.tipoArm || 'conector',
-      protensao: data.protensao || null,
     });
     setResults(R);
     setCalculated(true);

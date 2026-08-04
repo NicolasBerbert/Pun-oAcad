@@ -69,7 +69,6 @@ function Results({ R, onConfigurarStuds, onExportar }) {
             <h2>Resumo do dimensionamento</h2>
             <div className="meta">
               Cálculo conforme ABNT NBR 6118:2023 · pilar interno {R.circ ? 'circular' : 'retangular'} · momentos Mx + My
-              {R.prot ? ' · laje protendida (σcp)' : ''}
             </div>
           </div>
           <div className="actions" style={{marginLeft:'auto'}}>
@@ -128,21 +127,6 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               ['ρ<sub>y</sub>', fmtPct(R.roy), '%'],
               ['ρ = √(ρ<sub>x</sub>·ρ<sub>y</sub>)', fmtPct(R.rho), '%'],
             ]} />
-            {R.prot && (
-              <>
-                <Formula>
-                  <span className="var">σ<sub>cp,x</sub></span> = N<sub>sd,x</sub>/A<sub>c</sub> = <span className="num">{fmt(R.prot.sigcpx)} MPa</span>
-                  {' · '}
-                  <span className="var">σ<sub>cp,y</sub></span> = N<sub>sd,y</sub>/A<sub>c</sub> = <span className="num">{fmt(R.prot.sigcpy)} MPa</span>
-                </Formula>
-                <Formula>
-                  <span className="var">σ<sub>cp</sub></span> = min((σ<sub>cp,x</sub>+σ<sub>cp,y</sub>)/2; 3,5) = <span className="num">{fmt(R.prot.sigcp)} MPa</span>
-                  {R.prot.desprezada
-                    ? <> → <b>desprezada</b> (σ<sub>cp</sub> ≤ 1 MPa em uma direção)</>
-                    : <> → considerada em τ<sub>Rd1</sub> e τ<sub>Rd3</sub></>}
-                </Formula>
-              </>
-            )}
           </ResultCard>
 
           {/* ── Perímetros */}
@@ -217,9 +201,8 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               <span className="var">k<sub>e</sub></span> = min(1+√(20/d); 2) = min(<span className="num">{fmt(R.ke_raw, 3)}</span>; 2) = <span className="num">{fmt(R.fator_d, 3)}</span>
             </Formula>
             <Formula>
-              <span className="var">τ<sub>Rd1</sub></span> = 0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> + 0,10·σ<sub>cp</sub> ={' '}
-              0,13·<span className="num">{fmt(R.fator_d, 3)}</span>·(100·<span className="num">{R.rho.toFixed(5)}</span>·<span className="num">{R.inputs.fck}</span>)<sup>1/3</sup>
-              {' '}+ 0,10·<span className="num">{fmt(R.sigcpEff)}</span> ={' '}
+              <span className="var">τ<sub>Rd1</sub></span> = 0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> ={' '}
+              0,13·<span className="num">{fmt(R.fator_d, 3)}</span>·(100·<span className="num">{R.rho.toFixed(5)}</span>·<span className="num">{R.inputs.fck}</span>)<sup>1/3</sup> ={' '}
               <span className="num">{fmt(R.tauRd1)} MPa</span>
             </Formula>
             {!R.verif2 && (
@@ -248,7 +231,7 @@ function Results({ R, onConfigurarStuds, onExportar }) {
                     ['A<sub>sw</sub> = n<sub>conec</sub>·A<sub>s1c</sub> (por camada)', fmt(R.studs.Asw, 3), 'cm²'],
                   ]} />
                   <Formula>
-                    <span className="var">τ<sub>Rd3</sub></span> = 0,10·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> + 0,10·σ<sub>cp</sub> + 1,5·(d/s<sub>r</sub>)·(A<sub>sw</sub>·f<sub>ywd</sub>·sen α)/(u<sub>2</sub>·d) = <span className="num">{fmt(R.tauRd3)} MPa</span>
+                    <span className="var">τ<sub>Rd3</sub></span> = 0,10·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> + 1,5·(d/s<sub>r</sub>)·(A<sub>sw</sub>·f<sub>ywd</sub>·sen α)/(u<sub>2</sub>·d) = <span className="num">{fmt(R.tauRd3)} MPa</span>
                   </Formula>
                   <div className="kv-grid">
                     <span className="k">τ<sub>Sd</sub> {R.verif3 ? '≤' : '>'} τ<sub>Rd3</sub></span>
