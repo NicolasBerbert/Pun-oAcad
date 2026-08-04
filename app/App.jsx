@@ -16,6 +16,8 @@ const DEFAULT_DATA = {
   phi_lx: 12.5, s_x: 15,
   phi_ly: 12.5, s_y: 15,
   studs: null,
+  tipoArm: 'conector',
+  protensao: null,
 };
 
 const STEP_TITLES = ['Pilar', 'Cargas', 'Laje', 'Armaduras', 'Studs', 'Resultados'];
@@ -78,6 +80,8 @@ function App() {
       phi_lx: data.phi_lx, phi_ly: data.phi_ly,
       s_x: data.s_x, s_y: data.s_y,
       studs: data.studs?.phi && data.studs?.nconec && data.studs?.ncam ? data.studs : null,
+      tipoArm: data.tipoArm || 'conector',
+      protensao: data.protensao || null,
     });
     setResults(R);
     setCalculated(true);
@@ -100,6 +104,11 @@ function App() {
   // Compute all "step done" flags
   const stepsDone = [1,2,3,4].map(i => isStepDone(i, data));
   const allRequired = stepsDone.every(Boolean);
+
+  // Perímetro u1 ao vivo (circular: π·Ø; retangular: 2·C1 + 2·C2)
+  const u1Live = data.secao === 'circular'
+    ? (data.diam > 0 ? Math.PI * data.diam : null)
+    : (data.C1 > 0 && data.C2 > 0 ? 2 * data.C1 + 2 * data.C2 : null);
 
   // Build viewer data
   const viewerData = useMemo(() => ({
@@ -225,8 +234,8 @@ function App() {
 
             <div className="helper-rail">
               <HelperRailCard label="d (média)" val={derived.d ? derived.d.toFixed(2) + ' cm' : '—'} />
-              <HelperRailCard label="u₁" val={(2*(data.C1||0) + 2*(data.C2||0)) > 0 ? (2*(data.C1||0) + 2*(data.C2||0)).toFixed(1) + ' cm' : '—'} />
-              <HelperRailCard label="u₂ (a 2d)" val={derived.d && data.C1 && data.C2 ? (2*data.C1 + 2*data.C2 + 4*Math.PI*derived.d).toFixed(1) + ' cm' : '—'} />
+              <HelperRailCard label="u₁" val={u1Live ? u1Live.toFixed(1) + ' cm' : '—'} />
+              <HelperRailCard label="u₂ (a 2d)" val={u1Live && derived.d ? (u1Live + 4*Math.PI*derived.d).toFixed(1) + ' cm' : '—'} />
               <HelperRailCard label="classe" val={data.fck ? `C${Math.round(data.fck)}` : '—'} />
               <HelperRailCard label="Fsd (γf=1,4)" val={data.Fsk ? (1.4*data.Fsk).toFixed(0) + ' kN' : '—'} />
             </div>

@@ -1,9 +1,10 @@
 // ============================================================
 //  PunçãoAcad — Rotina de Cálculo (pura, adaptada de script.js)
 //  ABNT NBR 6118:2023 — Pilar interno com momentos nas duas direções
+//  Seção retangular ou circular · protensão (σcp) · conector ou estribo
 // ============================================================
 
-// Interpolação do coeficiente k (tabela item 19.5.2.3)
+// Interpolação do coeficiente K (tabela item 19.5.2.3) — pilar retangular
 function interpolarK(C1, C2) {
   const razao = C1 / C2;
   const tab = [
@@ -36,11 +37,16 @@ function calcularPuncao(inputs) {
     phi_lx, s_x,    // mm, cm
     phi_ly, s_y,    // mm, cm
     studs,        // optional: { phi (mm), nconec, ncam }
+    tipoArm,      // 'conector' (default) | 'estribo' — base de fywd (item 19.4.2)
+    protensao,    // optional: { Nsdx, Nsdy (kN), Ac (cm²) } → σcp (item 19.5.3.2)
   } = inputs;
 
-  // Para circular: usamos diâmetro como C1 = C2 = diam (aproximação para perímetro retangular equivalente — usuário avisado)
-  const cC1 = secao === 'circular' ? diam : C1;
-  const cC2 = secao === 'circular' ? diam : C2;
+  // Pilar circular interno tem tratamento próprio (item 19.5.2.3):
+  // u = π·Ø, K = 0,6 e Wp = (Ø + 4d)². cC1/cC2 = Ø servem para as faixas de ρ.
+  const circ = secao === 'circular';
+  const D = circ ? diam : null;
+  const cC1 = circ ? diam : C1;
+  const cC2 = circ ? diam : C2;
 
   // Validação — dimensões/materiais devem ser estritamente positivos.
   // Fsk pode ser negativo (uplift); o cálculo usa |Fsd| pois a punção depende
@@ -80,17 +86,20 @@ function calcularPuncao(inputs) {
 
   if (d <= 0) return { error: 'd_negative' };
 
-  // fywd (item 19.4.2)
+  // fywd (item 19.4.2): base 300 MPa (conectores) ou 250 MPa (estribos) para
+  // h ≤ 15 cm, interpolando linearmente até 435 MPa para h ≥ 35 cm.
+  const tipoArmEff = tipoArm === 'estribo' ? 'estribo' : 'conector';
+  const fywdBase = tipoArmEff === 'estribo' ? 250 : 300;
   let fywd;
-  if (h <= 15) fywd = 300;
+  if (h <= 15) fywd = fywdBase;
   else if (h >= 35) fywd = 435;
-  else fywd = 300 + ((h - 15) * (435 - 300)) / (35 - 15);
+  else fywd = fywdBase + ((h - 15) * (435 - fywdBase)) / (35 - 15);
 
-  // Perímetros
-  const u1 = 2 * cC1 + 2 * cC2;
+  // Perímetros — circular: u1 = π·Ø e u2 = π·(Ø + 4d) = u1 + 4π·d
+  const u1 = circ ? Math.PI * D : 2 * cC1 + 2 * cC2;
   const u2 = u1 + 4 * Math.PI * d;
 
-  // Taxa ρ
+  // Taxa ρ — faixa: dimensão do pilar + 3d para cada lado
   const As1_x = Math.PI * phi_lx_cm * phi_lx_cm / 4;
   const As1_y = Math.PI * phi_ly_cm * phi_ly_cm / 4;
   const faixaX = 3 * d + cC1 + 3 * d;
@@ -101,6 +110,20 @@ function calcularPuncao(inputs) {
   const roy = (qy * As1_y) / (dy * faixaY);
   const rho = Math.min(Math.sqrt(rox * roy), 0.02);
 
+  // Protensão — σcp (item 19.5.3.2): σcp,i = Nsd,i/Ac; média limitada a 3,5 MPa.
+  // Efeito favorável desprezado se σcp,x ≤ 1 MPa ou σcp,y ≤ 1 MPa.
+  let prot = null;
+  let sigcpEff = 0;
+  if (protensao && Number.isFinite(protensao.Nsdx) && Number.isFinite(protensao.Nsdy) &&
+      Number.isFinite(protensao.Ac) && protensao.Ac > 0) {
+    const sigcpx = 10 * protensao.Nsdx / protensao.Ac; // kN/cm² → MPa
+    const sigcpy = 10 * protensao.Nsdy / protensao.Ac;
+    const desprezada = sigcpx <= 1 || sigcpy <= 1;
+    const sigcp = Math.min((sigcpx + sigcpy) / 2, 3.5);
+    sigcpEff = desprezada ? 0 : sigcp;
+    prot = { Nsdx: protensao.Nsdx, Nsdy: protensao.Nsdy, Ac: protensao.Ac, sigcpx, sigcpy, sigcp, sigcpEff, desprezada };
+  }
+
   // ── Etapa 6 — Contorno C ─────────────────────────────────
   const alphaV = 1 - fck / 250;
   const tauRd2 = alphaV * fcd * 0.27;
@@ -108,17 +131,23 @@ function calcularPuncao(inputs) {
   const verif1 = tauSd_C <= tauRd2;
 
   // ── Etapa 7 — Contorno C' sem armadura ──────────────────
-  const kx = interpolarK(cC1, cC2);
-  const ky = interpolarK(cC2, cC1);
-  const Wpx = (cC1*cC1)/2 + cC1*cC2 + 4*cC2*d + 16*d*d + 2*Math.PI*cC1*d;
-  const Wpy = (cC2*cC2)/2 + cC2*cC1 + 4*cC1*d + 16*d*d + 2*Math.PI*cC2*d;
+  const kx = circ ? 0.6 : interpolarK(cC1, cC2);
+  const ky = circ ? 0.6 : interpolarK(cC2, cC1);
+  const Wpx = circ
+    ? (D + 4 * d) * (D + 4 * d)
+    : (cC1*cC1)/2 + cC1*cC2 + 4*cC2*d + 16*d*d + 2*Math.PI*cC1*d;
+  const Wpy = circ
+    ? (D + 4 * d) * (D + 4 * d)
+    : (cC2*cC2)/2 + cC2*cC1 + 4*cC1*d + 16*d*d + 2*Math.PI*cC2*d;
   const tauSd_Cl = (
     aFsd / (u2 * d) +
     kx * aMsd1x / (Wpx * d) +
     ky * aMsd1y / (Wpy * d)
   ) / 10;
-  const fator_d = 1 + Math.sqrt(20 / d);
-  const tauRd1 = 0.13 * fator_d * Math.pow(100 * rho * fck, 1/3);
+  // ke = (1 + √(20/d)) ≤ 2 (item 19.5.3.2)
+  const ke_raw = 1 + Math.sqrt(20 / d);
+  const fator_d = Math.min(ke_raw, 2);
+  const tauRd1 = 0.13 * fator_d * Math.pow(100 * rho * fck, 1/3) + 0.10 * sigcpEff;
   const verif2 = tauSd_Cl <= tauRd1;
   const precisaArm = !verif2;
 
@@ -127,14 +156,16 @@ function calcularPuncao(inputs) {
   const sr_lim = 0.75 * d;
   const se_lim = 2 * d;
 
-  // Studs
+  // Armadura transversal (studs/estribos)
   let studsOut = null, verif3 = null, tauRd3 = null;
   if (studs && Number.isFinite(studs.phi) && studs.phi > 0 && studs.nconec >= 1 && studs.ncam >= 1) {
     const phi_stud_cm = studs.phi / 10;
     const As1c = Math.PI * phi_stud_cm * phi_stud_cm / 4;
-    const Asw = studs.nconec * studs.ncam * As1c;
+    // Asw = área da armadura num contorno completo paralelo a C' (UMA camada);
+    // as demais camadas entram via 1,5·(d/sr) — item 19.5.3.3.
+    const Asw = studs.nconec * As1c;
     const sr = sr_lim;
-    const term1 = 0.10 * fator_d * Math.pow(100 * rho * fck, 1/3);
+    const term1 = 0.10 * fator_d * Math.pow(100 * rho * fck, 1/3) + 0.10 * sigcpEff;
     // 1.5*(d/sr)*(Asw*fywd*sin90°)/(u2*d) — Asw em cm², fywd em MPa, u2,d em cm
     // (Asw[cm²]·fywd[MPa])/(u2·d[cm²]) → MPa. Multiplica por 1,5·(d/sr) (adim.).
     const term2 = 1.5 * (d / sr) * (Asw * fywd) / (u2 * d);
@@ -148,9 +179,14 @@ function calcularPuncao(inputs) {
   if (studs && studs.ncam >= 1) {
     const sr = sr_lim;
     const p = s0_lim + (studs.ncam - 1) * sr;
-    const u3 = u1 + 4 * Math.PI * (d + p);
-    const WpxCpp = Wpx + 2*cC2*p + 16*d*p + 4*p*p + Math.PI*cC1*p;
-    const WpyCpp = Wpy + 2*cC1*p + 16*d*p + 4*p*p + Math.PI*cC2*p;
+    // C'' fica 2d além da última camada → contorno a (2d + p) da face do pilar
+    const u3 = u1 + 2 * Math.PI * (2 * d + p);
+    const WpxCpp = circ
+      ? (D + 4 * d + 2 * p) * (D + 4 * d + 2 * p)
+      : Wpx + 2*cC2*p + 16*d*p + 4*p*p + Math.PI*cC1*p;
+    const WpyCpp = circ
+      ? (D + 4 * d + 2 * p) * (D + 4 * d + 2 * p)
+      : Wpy + 2*cC1*p + 16*d*p + 4*p*p + Math.PI*cC2*p;
     const tauSd_Cpp = (
       aFsd / (u3 * d) +
       kx * aMsd1x / (WpxCpp * d) +
@@ -162,14 +198,16 @@ function calcularPuncao(inputs) {
 
   return {
     inputs,
+    secao, circ, D,
     cC1, cC2,
-    fcd, fyd, fywd,
+    fcd, fyd, fywd, fywdBase, tipoArm: tipoArmEff,
     Fsd, Msd1x, Msd1y,
     dx, dy, d,
     rho, rox, roy, As1_x, As1_y, qx, qy, faixaX, faixaY,
     u1, u2,
     alphaV, tauRd2, tauSd_C, verif1,
-    kx, ky, Wpx, Wpy, tauSd_Cl, tauRd1, verif2, precisaArm, fator_d,
+    kx, ky, Wpx, Wpy, tauSd_Cl, tauRd1, verif2, precisaArm, fator_d, ke_raw,
+    prot, sigcpEff,
     s0_lim, sr_lim, se_lim,
     studs: studsOut, tauRd3, verif3,
     etapa9,

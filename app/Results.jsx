@@ -67,7 +67,10 @@ function Results({ R, onConfigurarStuds, onExportar }) {
         <div className="results-header">
           <div className="title-wrap">
             <h2>Resumo do dimensionamento</h2>
-            <div className="meta">Cálculo conforme ABNT NBR 6118:2023 · pilar interno · momentos Mx + My</div>
+            <div className="meta">
+              Cálculo conforme ABNT NBR 6118:2023 · pilar interno {R.circ ? 'circular' : 'retangular'} · momentos Mx + My
+              {R.prot ? ' · laje protendida (σcp)' : ''}
+            </div>
           </div>
           <div className="actions" style={{marginLeft:'auto'}}>
             <button className="btn btn-sm" onClick={() => window.print()}>
@@ -114,7 +117,7 @@ function Results({ R, onConfigurarStuds, onExportar }) {
             <KV rows={[
               ['f<sub>cd</sub>', fmt(R.fcd), 'MPa'],
               ['f<sub>yd</sub>', fmt(R.fyd), 'MPa'],
-              ['f<sub>ywd</sub>', fmt(R.fywd), 'MPa'],
+              [`f<sub>ywd</sub> (${R.tipoArm === 'estribo' ? 'estribo, base 250' : 'conector, base 300'} MPa)`, fmt(R.fywd), 'MPa'],
               ['F<sub>sd</sub>', fmt(R.Fsd), 'kN'],
               ['M<sub>sd1x</sub>', fmt(R.Msd1x), 'kN·cm'],
               ['M<sub>sd1y</sub>', fmt(R.Msd1y), 'kN·cm'],
@@ -125,21 +128,52 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               ['ρ<sub>y</sub>', fmtPct(R.roy), '%'],
               ['ρ = √(ρ<sub>x</sub>·ρ<sub>y</sub>)', fmtPct(R.rho), '%'],
             ]} />
+            {R.prot && (
+              <>
+                <Formula>
+                  <span className="var">σ<sub>cp,x</sub></span> = N<sub>sd,x</sub>/A<sub>c</sub> = <span className="num">{fmt(R.prot.sigcpx)} MPa</span>
+                  {' · '}
+                  <span className="var">σ<sub>cp,y</sub></span> = N<sub>sd,y</sub>/A<sub>c</sub> = <span className="num">{fmt(R.prot.sigcpy)} MPa</span>
+                </Formula>
+                <Formula>
+                  <span className="var">σ<sub>cp</sub></span> = min((σ<sub>cp,x</sub>+σ<sub>cp,y</sub>)/2; 3,5) = <span className="num">{fmt(R.prot.sigcp)} MPa</span>
+                  {R.prot.desprezada
+                    ? <> → <b>desprezada</b> (σ<sub>cp</sub> ≤ 1 MPa em uma direção)</>
+                    : <> → considerada em τ<sub>Rd1</sub> e τ<sub>Rd3</sub></>}
+                </Formula>
+              </>
+            )}
           </ResultCard>
 
           {/* ── Perímetros */}
           <ResultCard title="Perímetros de controle" cite="item 19.5.2.1">
-            <Formula>
-              <span className="var">u<sub>1</sub></span> = 2·C<sub>1</sub> + 2·C<sub>2</sub> ={' '}
-              <span className="num">2·{R.cC1} + 2·{R.cC2}</span> = <span className="num">{fmt(R.u1)} cm</span>
-            </Formula>
-            <Formula>
-              <span className="var">u<sub>2</sub></span> = u<sub>1</sub> + 4π·d ={' '}
-              <span className="num">{fmt(R.u1)} + 4π·{fmt(R.d)}</span> = <span className="num">{fmt(R.u2)} cm</span>
-            </Formula>
+            {R.circ ? (
+              <>
+                <Formula>
+                  <span className="var">u<sub>1</sub></span> = π·Ø ={' '}
+                  <span className="num">π·{R.D}</span> = <span className="num">{fmt(R.u1)} cm</span>
+                </Formula>
+                <Formula>
+                  <span className="var">u<sub>2</sub></span> = π·(Ø + 4d) ={' '}
+                  <span className="num">π·({R.D} + 4·{fmt(R.d)})</span> = <span className="num">{fmt(R.u2)} cm</span>
+                </Formula>
+              </>
+            ) : (
+              <>
+                <Formula>
+                  <span className="var">u<sub>1</sub></span> = 2·C<sub>1</sub> + 2·C<sub>2</sub> ={' '}
+                  <span className="num">2·{R.cC1} + 2·{R.cC2}</span> = <span className="num">{fmt(R.u1)} cm</span>
+                </Formula>
+                <Formula>
+                  <span className="var">u<sub>2</sub></span> = u<sub>1</sub> + 4π·d ={' '}
+                  <span className="num">{fmt(R.u1)} + 4π·{fmt(R.d)}</span> = <span className="num">{fmt(R.u2)} cm</span>
+                </Formula>
+              </>
+            )}
             {R.etapa9 && (
               <Formula>
-                <span className="var">u<sub>3</sub></span> = u<sub>1</sub> + 4π·(d + p) = <span className="num">{fmt(R.etapa9.u3)} cm</span>
+                <span className="var">u<sub>3</sub></span> = u<sub>1</sub> + 2π·(2d + p) ={' '}
+                <span className="num">{fmt(R.u1)} + 2π·(2·{fmt(R.d)} + {fmt(R.etapa9.p)})</span> = <span className="num">{fmt(R.etapa9.u3)} cm</span>
               </Formula>
             )}
           </ResultCard>
@@ -167,7 +201,10 @@ function Results({ R, onConfigurarStuds, onExportar }) {
 
           {/* ── Etapa 7 */}
           <ResultCard title="Etapa 7 — Contorno C′: sem armadura" cite="item 19.5.3.2" ok={R.verif2}>
-            <KV rows={[
+            <KV rows={R.circ ? [
+              ['K (pilar circular interno)', fmt(R.kx, 2), ''],
+              ['W<sub>p</sub> = (Ø + 4d)²', fmt(R.Wpx), 'cm³'],
+            ] : [
               ['k<sub>x</sub> (interpolado, C₁/C₂ = ' + (R.cC1/R.cC2).toFixed(2) + ')', fmt(R.kx, 3), ''],
               ['k<sub>y</sub>', fmt(R.ky, 3), ''],
               ['W<sub>px</sub>', fmt(R.Wpx), 'cm³'],
@@ -177,8 +214,12 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               <span className="var">τ<sub>Sd</sub></span> = F<sub>sd</sub>/(u<sub>2</sub>·d) + k<sub>x</sub>·M<sub>sd,x</sub>/(W<sub>px</sub>·d) + k<sub>y</sub>·M<sub>sd,y</sub>/(W<sub>py</sub>·d) = <span className="num">{fmt(R.tauSd_Cl)} MPa</span>
             </Formula>
             <Formula>
-              <span className="var">τ<sub>Rd1</sub></span> = 0,13·(1+√(20/d))·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> ={' '}
-              0,13·<span className="num">{fmt(R.fator_d, 3)}</span>·(100·<span className="num">{R.rho.toFixed(5)}</span>·<span className="num">{R.inputs.fck}</span>)<sup>1/3</sup> ={' '}
+              <span className="var">k<sub>e</sub></span> = min(1+√(20/d); 2) = min(<span className="num">{fmt(R.ke_raw, 3)}</span>; 2) = <span className="num">{fmt(R.fator_d, 3)}</span>
+            </Formula>
+            <Formula>
+              <span className="var">τ<sub>Rd1</sub></span> = 0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> + 0,10·σ<sub>cp</sub> ={' '}
+              0,13·<span className="num">{fmt(R.fator_d, 3)}</span>·(100·<span className="num">{R.rho.toFixed(5)}</span>·<span className="num">{R.inputs.fck}</span>)<sup>1/3</sup>
+              {' '}+ 0,10·<span className="num">{fmt(R.sigcpEff)}</span> ={' '}
               <span className="num">{fmt(R.tauRd1)} MPa</span>
             </Formula>
             {!R.verif2 && (
@@ -201,13 +242,13 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               {R.studs ? (
                 <>
                   <KV rows={[
-                    ['Ø do conector', R.studs.phi, 'mm'],
+                    [`Ø do ${R.tipoArm === 'estribo' ? 'estribo' : 'conector'}`, R.studs.phi, 'mm'],
                     ['n<sub>conec</sub> × n<sub>cam</sub>', `${R.studs.nconec} × ${R.studs.ncam}`, ''],
                     ['A<sub>s1c</sub> = π·Ø²/4', fmt(R.studs.As1c, 4), 'cm²'],
-                    ['A<sub>sw</sub> = n<sub>conec</sub>·n<sub>cam</sub>·A<sub>s1c</sub>', fmt(R.studs.Asw, 3), 'cm²'],
+                    ['A<sub>sw</sub> = n<sub>conec</sub>·A<sub>s1c</sub> (por camada)', fmt(R.studs.Asw, 3), 'cm²'],
                   ]} />
                   <Formula>
-                    <span className="var">τ<sub>Rd3</sub></span> = 0,10·(1+√(20/d))·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> + 1,5·(d/s<sub>r</sub>)·(A<sub>sw</sub>·f<sub>ywd</sub>)/(u<sub>2</sub>·d) = <span className="num">{fmt(R.tauRd3)} MPa</span>
+                    <span className="var">τ<sub>Rd3</sub></span> = 0,10·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup> + 0,10·σ<sub>cp</sub> + 1,5·(d/s<sub>r</sub>)·(A<sub>sw</sub>·f<sub>ywd</sub>·sen α)/(u<sub>2</sub>·d) = <span className="num">{fmt(R.tauRd3)} MPa</span>
                   </Formula>
                   <div className="kv-grid">
                     <span className="k">τ<sub>Sd</sub> {R.verif3 ? '≤' : '>'} τ<sub>Rd3</sub></span>
@@ -226,8 +267,12 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               <KV rows={[
                 ['p (pilar → última camada)', fmt(R.etapa9.p), 'cm'],
                 ['u<sub>3</sub>', fmt(R.etapa9.u3), 'cm'],
-                ['W<sub>px,C″</sub>', fmt(R.etapa9.WpxCpp), 'cm³'],
-                ['W<sub>py,C″</sub>', fmt(R.etapa9.WpyCpp), 'cm³'],
+                ...(R.circ ? [
+                  ['W<sub>p,C″</sub> = (Ø + 4d + 2p)²', fmt(R.etapa9.WpxCpp), 'cm³'],
+                ] : [
+                  ['W<sub>px,C″</sub>', fmt(R.etapa9.WpxCpp), 'cm³'],
+                  ['W<sub>py,C″</sub>', fmt(R.etapa9.WpyCpp), 'cm³'],
+                ]),
                 ['τ<sub>Sd,C″</sub>', fmt(R.etapa9.tauSd_Cpp), 'MPa'],
                 ['τ<sub>Rd1</sub>', fmt(R.tauRd1), 'MPa'],
               ]} />

@@ -22,6 +22,9 @@ const HELP = {
   stud_phi: { title: 'Diâmetro do conector', body: 'Diâmetro do conector de cisalhamento (stud) em mm. Limite Ø ≤ h/20.', ref: 'NBR 6118 · 19.4.2' },
   nconec: { title: 'Conectores por camada', body: 'Quantidade de studs em cada camada radial (geralmente 8 ou 12).', ref: 'NBR 6118 · 19.5.3.3' },
   ncam: { title: 'Número de camadas', body: 'Quantidade de camadas radiais de studs ao redor do pilar.', ref: 'NBR 6118 · 19.5.3.3' },
+  tipoArm: { title: 'Tipo de armadura de punção', body: 'Define a base de fywd: conector (stud) → 300 MPa; estribo → 250 MPa, para h ≤ 15 cm, interpolando linearmente até 435 MPa quando h ≥ 35 cm.', ref: 'NBR 6118 · 19.4.2' },
+  Nsd: { title: 'Força de compressão Nsd', body: 'Força axial de compressão de cálculo no plano da laje na direção considerada (ex.: protensão), atuante no contorno C′. Considerar as perdas de protensão.', ref: 'NBR 6118 · 19.5.3.2' },
+  Ac: { title: 'Área Ac', body: 'Área de concreto associada à força axial de compressão (seção transversal da faixa considerada), em cm².', ref: 'NBR 6118 · 19.5.3.2' },
 };
 
 function HelpDot({ k }) {
@@ -169,7 +172,9 @@ function StepPilar({ data, set, active, onActivate, focused, setFocused, errs })
         <HelperPilar secao={data.secao} C1={data.C1} C2={data.C2} diam={data.diam} />
         <div className="lbl">
           <b>Pilar interno</b> · com momentos nas duas direções (Mx, My) atuando simultaneamente.<br/>
-          A excentricidade da força gera tensões adicionais no perímetro crítico.
+          {data.secao === 'circular'
+            ? <>Pilar circular: u = π·Ø, K = 0,6 e W<sub>p</sub> = (Ø + 4d)², conforme item 19.5.2.3.</>
+            : <>A excentricidade da força gera tensões adicionais no perímetro crítico.</>}
         </div>
       </div>
     </StepCard>
@@ -182,7 +187,14 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
     { lbl: 'Fsk', val: `${data.Fsk || '—'} kN` },
     { lbl: 'Mxk', val: `${data.Mxk || '—'} kN·cm` },
     { lbl: 'Myk', val: `${data.Myk || '—'} kN·cm` },
+    ...(data.protensao ? [{ lbl: 'σcp', val: 'protendida' }] : []),
   ];
+  const prot = data.protensao;
+  const sigOk = prot && prot.Ac > 0 && Number.isFinite(prot.Nsdx) && Number.isFinite(prot.Nsdy);
+  const sigcpx = sigOk ? 10 * prot.Nsdx / prot.Ac : null;
+  const sigcpy = sigOk ? 10 * prot.Nsdy / prot.Ac : null;
+  const desprezada = sigOk && (sigcpx <= 1 || sigcpy <= 1);
+  const sigcp = sigOk ? Math.min((sigcpx + sigcpy) / 2, 3.5) : null;
   return (
     <StepCard n={2} title="Carregamentos característicos" active={active} done={isStepDone(2, data)} summary={summary} onClick={onActivate}>
       <div className="grid-3">
@@ -190,6 +202,36 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
         <Field label="M<sub>xk</sub>" helpKey="Mxk" value={data.Mxk} onChange={v => set({ Mxk: v })} onFocus={() => setFocused('Mxk')} placeholder="8100" suffix="kN·cm" error={errs.Mxk} />
         <Field label="M<sub>yk</sub>" helpKey="Myk" value={data.Myk} onChange={v => set({ Myk: v })} onFocus={() => setFocused('Myk')} placeholder="5400" suffix="kN·cm" error={errs.Myk} />
       </div>
+
+      <div>
+        <div className="subhead">Protensão · compressão no plano da laje (opcional)</div>
+        <label style={{display:'flex', alignItems:'center', gap: 8, fontSize: 13, cursor:'pointer', marginBottom: 8}}>
+          <input
+            type="checkbox"
+            checked={!!data.protensao}
+            onChange={e => set({ protensao: e.target.checked ? { Nsdx: null, Nsdy: null, Ac: null } : null })}
+          />
+          Laje protendida — considerar o efeito favorável de σ<sub>cp</sub> em τ<sub>Rd1</sub> e τ<sub>Rd3</sub>
+        </label>
+        {prot && (
+          <>
+            <div className="grid-3">
+              <Field label="N<sub>sd,x</sub>" helpKey="Nsd" value={prot.Nsdx} onChange={v => set({ protensao: { ...prot, Nsdx: v } })} onFocus={() => setFocused('Nsdx')} placeholder="800" suffix="kN" />
+              <Field label="N<sub>sd,y</sub>" helpKey="Nsd" value={prot.Nsdy} onChange={v => set({ protensao: { ...prot, Nsdy: v } })} onFocus={() => setFocused('Nsdy')} placeholder="800" suffix="kN" />
+              <Field label="A<sub>c</sub>" helpKey="Ac" value={prot.Ac} onChange={v => set({ protensao: { ...prot, Ac: v } })} onFocus={() => setFocused('Ac')} placeholder="5100" suffix="cm²" />
+            </div>
+            {sigOk && (
+              <div className="callout" style={{marginTop: 8}}>
+                σ<sub>cp,x</sub> = {sigcpx.toFixed(2)} MPa · σ<sub>cp,y</sub> = {sigcpy.toFixed(2)} MPa → σ<sub>cp</sub> = min(média; 3,5) = <b>{sigcp.toFixed(2)} MPa</b>.{' '}
+                {desprezada
+                  ? <b>Efeito favorável desprezado: σcp ≤ 1 MPa em uma das direções (item 19.5.3.2).</b>
+                  : 'Será somado 0,10·σcp às tensões resistentes τRd1 e τRd3.'}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       <div className="helper">
         <HelperCargas Fsk={data.Fsk} Mxk={data.Mxk} Myk={data.Myk} />
         <div className="lbl">
@@ -272,19 +314,46 @@ function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derive
 
 // ── Step 5: Studs ─────────────────────────────────────────
 function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, locked, unlockReason }) {
+  const tipoArm = data.tipoArm === 'estribo' ? 'estribo' : 'conector';
   const summary = data.studs?.phi
-    ? [{ lbl: 'Ø', val: `${data.studs.phi} mm` }, { lbl: 'nconec', val: data.studs.nconec }, { lbl: 'ncam', val: data.studs.ncam }]
+    ? [{ lbl: 'Tipo', val: tipoArm === 'estribo' ? 'Estribo' : 'Conector' }, { lbl: 'Ø', val: `${data.studs.phi} mm` }, { lbl: 'nconec', val: data.studs.nconec }, { lbl: 'ncam', val: data.studs.ncam }]
     : [];
   const phiMax = derived?.h ? (derived.h / 2) : null; // Ø ≤ h/20 in mm: h/20*10
   const phiMaxMm = derived?.h ? (derived.h * 10 / 20) : null;
 
+  // fywd ao vivo (item 19.4.2): base 300 (conector) ou 250 (estribo) → 435 MPa
+  const fywdBase = tipoArm === 'estribo' ? 250 : 300;
+  const hLaje = derived?.h;
+  const fywdLive = hLaje
+    ? (hLaje <= 15 ? fywdBase : hLaje >= 35 ? 435 : fywdBase + (hLaje - 15) * (435 - fywdBase) / 20)
+    : null;
+
   return (
-    <StepCard n={5} title="Armadura de punção · studs" active={active} done={!!data.studs?.phi && active === false} locked={locked && !active} summary={summary} onClick={onActivate}>
+    <StepCard n={5} title="Armadura de punção" active={active} done={!!data.studs?.phi && active === false} locked={locked && !active} summary={summary} onClick={onActivate}>
       {locked && (
         <div className="callout" style={{marginBottom: 8}}>
           🔒 Esta etapa é ativada após o cálculo indicar necessidade de armadura de punção.
         </div>
       )}
+      <div>
+        <div className="subhead">Tipo de armadura transversal</div>
+        <div className="radio-cards">
+          <label className="radio-card">
+            <input type="radio" name="tipoArm" checked={tipoArm === 'conector'} onChange={() => set({ tipoArm: 'conector' })} />
+            <svg className="sketch" viewBox="0 0 32 22"><line x1="16" y1="4" x2="16" y2="18" stroke="#3b465a" strokeWidth="2"/><line x1="10" y1="4" x2="22" y2="4" stroke="#3b465a" strokeWidth="2.5"/><line x1="10" y1="18" x2="22" y2="18" stroke="#3b465a" strokeWidth="2.5"/></svg>
+            Conector (stud)
+          </label>
+          <label className="radio-card">
+            <input type="radio" name="tipoArm" checked={tipoArm === 'estribo'} onChange={() => set({ tipoArm: 'estribo' })} />
+            <svg className="sketch" viewBox="0 0 32 22"><rect x="9" y="5" width="14" height="12" rx="2" fill="none" stroke="#3b465a" strokeWidth="1.6"/></svg>
+            Estribo
+          </label>
+        </div>
+        <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
+          f<sub>ywd</sub> = <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{fywdLive ? fywdLive.toFixed(1) + ' MPa' : '—'}</span>
+          {' '}<HelpDot k="tipoArm" /> (base {fywdBase} MPa → 435 MPa conforme h)
+        </div>
+      </div>
       <div className="grid-3">
         <Field
           label="Ø do conector"
