@@ -1,6 +1,6 @@
 // ============================================================
 //  PunçãoAcad — Rotina de Cálculo (pura)
-//  ABNT NBR 6118:2023 — Pilar interno com momentos nas duas direções
+//  ABNT NBR 6118:2026 — Pilar interno com momentos nas duas direções
 //  Seção retangular ou circular · conector ou estribo
 //
 //  Unidades de entrada: cm (geometria), kN e kN·cm (esforços),
@@ -26,6 +26,49 @@ function interpolarK(C1, C2) {
     }
   }
   return 0.6;
+}
+
+// Geometria da roseta de armadura de punção (planta, origem no centro do pilar).
+// Os raios são distribuídos uniformemente em ângulo; em cada raio os conectores
+// ficam a s0, s0+sr, s0+2·sr … medidos A PARTIR DA FACE do pilar.
+// Retorna também o maior espaçamento tangencial na última camada, que é o
+// valor a comparar com o limite se ≤ 2d.
+function layoutArmadura({ circ, D, C1, C2, nconec, ncam, s0, sr }) {
+  const raios = [];
+  const pontos = [];
+  for (let i = 0; i < nconec; i++) {
+    // começa no topo (−90°) para a roseta ficar simétrica em relação aos eixos
+    const th = -Math.PI / 2 + (2 * Math.PI * i) / nconec;
+    const ux = Math.cos(th), uy = Math.sin(th);
+    // distância do centro até a face do pilar ao longo deste raio
+    let tFace;
+    if (circ) {
+      tFace = D / 2;
+    } else {
+      const a = C1 / 2, b = C2 / 2;
+      const tx = Math.abs(ux) > 1e-9 ? a / Math.abs(ux) : Infinity;
+      const ty = Math.abs(uy) > 1e-9 ? b / Math.abs(uy) : Infinity;
+      tFace = Math.min(tx, ty);
+    }
+    const camadas = [];
+    for (let k = 0; k < ncam; k++) {
+      const r = tFace + s0 + k * sr;
+      camadas.push({ k, r, x: ux * r, y: uy * r });
+      pontos.push({ i, k, r, x: ux * r, y: uy * r });
+    }
+    raios.push({ i, th, ux, uy, tFace, camadas });
+  }
+
+  // maior distância entre conectores vizinhos na camada mais externa
+  let se_real = 0;
+  const ultima = raios.map(r => r.camadas[ncam - 1]);
+  for (let i = 0; i < ultima.length; i++) {
+    const a = ultima[i], b = ultima[(i + 1) % ultima.length];
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    if (dist > se_real) se_real = dist;
+  }
+
+  return { raios, pontos, se_real, nconec, ncam, s0, sr };
 }
 
 // Recebe um objeto com TODAS as entradas e retorna o resultado completo,
@@ -97,14 +140,19 @@ function calcularPuncao(inputs) {
   if (dx <= 0 || dy <= 0) return { error: 'd_negative' };
 
   // ── Etapa 4 — fywd (item 19.4.2) ─────────────────────────
-  // Base 250 MPa (estribos) ou 300 MPa (conectores) para h ≤ 15 cm,
-  // interpolando linearmente até 435 MPa para h ≥ 35 cm.
+  // Três situações, em função da espessura da laje:
+  //   h < 15 cm ............ fywd = 250 MPa
+  //   h > 35 cm ............ fywd = 435 MPa
+  //   15 ≤ h ≤ 35 cm ....... interpolação linear entre 250 e 435 MPa
   const tipoArmEff = tipoArm === 'conector' ? 'conector' : 'estribo';
-  const fywdBase = tipoArmEff === 'conector' ? 300 : 250;
-  let fywd;
-  if (h <= 15) fywd = fywdBase;
-  else if (h >= 35) fywd = 435;
-  else fywd = fywdBase + ((h - 15) * (435 - fywdBase)) / (35 - 15);
+  const FYWD_MIN = 250, FYWD_MAX = 435, H_MIN = 15, H_MAX = 35;
+  let fywd, fywdCaso;
+  if (h < H_MIN) { fywd = FYWD_MIN; fywdCaso = 'menor'; }
+  else if (h > H_MAX) { fywd = FYWD_MAX; fywdCaso = 'maior'; }
+  else {
+    fywd = FYWD_MIN + ((h - H_MIN) * (FYWD_MAX - FYWD_MIN)) / (H_MAX - H_MIN);
+    fywdCaso = 'interpolado';
+  }
 
   // ── Etapa 3 — Perímetros de controle ─────────────────────
   // Circular: u1 = π·Ø e u2 = π·(Ø + 4d) = u1 + 4π·d
@@ -160,10 +208,14 @@ function calcularPuncao(inputs) {
   const s0 = espac && Number.isFinite(espac.s0) && espac.s0 > 0 ? espac.s0 : s0_lim;
   const sr = espac && Number.isFinite(espac.sr) && espac.sr > 0 ? espac.sr : sr_lim;
   const se = espac && Number.isFinite(espac.se) && espac.se > 0 ? espac.se : se_lim;
+  // Tolerância de 0,005 cm: os limites são exibidos com 2 casas, então adotar
+  // exatamente o valor mostrado (ex.: 6,63 para um limite de 6,625) é válido.
+  const TOL = 0.005;
+  const f2 = v => v.toFixed(2).replace('.', ',');
   const alertaEspac = [];
-  if (s0 > s0_lim) alertaEspac.push('s₀ adotado excede 0,5·d');
-  if (sr > sr_lim) alertaEspac.push('sr adotado excede 0,75·d');
-  if (se > se_lim) alertaEspac.push('se adotado excede 2·d');
+  if (s0 > s0_lim + TOL) alertaEspac.push(`s₀ = ${f2(s0)} cm excede o limite 0,5·d = ${f2(s0_lim)} cm`);
+  if (sr > sr_lim + TOL) alertaEspac.push(`sr = ${f2(sr)} cm excede o limite 0,75·d = ${f2(sr_lim)} cm`);
+  if (se > se_lim + TOL) alertaEspac.push(`se = ${f2(se)} cm excede o limite 2·d = ${f2(se_lim)} cm`);
 
   // Armadura transversal (conectores/estribos)
   let studsOut = null, verif3 = null, tauRd3 = null, tauRd3_c = null, tauRd3_s = null;
@@ -182,6 +234,12 @@ function calcularPuncao(inputs) {
     tauRd3 = tauRd3_c + tauRd3_s;
     studsOut = { phi: studs.phi, nconec: studs.nconec, ncam: studs.ncam, As1c, Asw };
     verif3 = tauSd_Cl <= tauRd3;
+    // Geometria da roseta adotada + espaçamento tangencial real (se) na última camada
+    studsOut.layout = layoutArmadura({
+      circ, D, C1: cC1, C2: cC2, nconec: studs.nconec, ncam: studs.ncam, s0, sr,
+    });
+    studsOut.se_real = studsOut.layout.se_real;
+    studsOut.se_ok = studsOut.se_real <= se_lim + TOL;
   }
 
   // ── Etapa 9 — Contorno C″ ────────────────────────────────
@@ -214,7 +272,7 @@ function calcularPuncao(inputs) {
     inputs,
     secao, circ, D,
     cC1, cC2,
-    fcd, fyd, fywd, fywdBase, tipoArm: tipoArmEff,
+    fcd, fyd, fywd, fywdCaso, tipoArm: tipoArmEff,
     Fsd, Msd1x, Msd1y,
     dx, dy, d, camadaExterna: extY ? 'y' : 'x',
     rho, rho_bruto, rox, roy, As1_x, As1_y,
@@ -232,3 +290,4 @@ function calcularPuncao(inputs) {
 
 window.calcularPuncao = calcularPuncao;
 window.interpolarK = interpolarK;
+window.layoutArmadura = layoutArmadura;

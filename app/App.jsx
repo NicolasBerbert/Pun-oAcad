@@ -131,7 +131,7 @@ function App() {
         <div className="brand">
           <div className="brand-mark"></div>
           <span className="brand-title">PunçãoAcad</span>
-          <span className="brand-sub">ABNT NBR 6118:2023 · pilar interno</span>
+          <span className="brand-sub">ABNT NBR 6118:2026 · pilar interno</span>
         </div>
         <input className="project-name" value={projectName} onChange={e => setProjectName(e.target.value)} aria-label="Nome do projeto" />
         <div className="topbar-spacer"></div>
@@ -254,10 +254,11 @@ function App() {
       {/* ── Results ── */}
       <div id="results-anchor" />
       {calculated && <Results R={results} onConfigurarStuds={onConfigurarStuds} onExportar={() => window.print()} />}
+      {calculated && <Detalhamento R={results} />}
 
       {/* ── Footer ── */}
       <footer className="footer">
-        PunçãoAcad · ABNT NBR 6118:2023 · Departamento de Engenharia Civil — UEM
+        PunçãoAcad · ABNT NBR 6118:2026 · Departamento de Engenharia Civil — UEM
       </footer>
     </div>
   );

@@ -95,7 +95,7 @@ function Results({ R, onConfigurarStuds, onExportar }) {
           <div className="title-wrap">
             <h2>Memorial de cálculo</h2>
             <div className="meta">
-              ABNT NBR 6118:2023 · pilar interno {R.circ ? 'circular' : 'retangular'} · momentos nas duas direções
+              ABNT NBR 6118:2026 · pilar interno {R.circ ? 'circular' : 'retangular'} · momentos nas duas direções
             </div>
           </div>
           <div className="actions" style={{marginLeft:'auto'}}>
@@ -205,17 +205,34 @@ function Results({ R, onConfigurarStuds, onExportar }) {
           {/* ── Etapa 4 ── */}
           <ResultCard title="4 — Tensão resistente da armadura de punção" cite="item 19.4.2">
             <div className="muted" style={{fontSize: 12}}>
-              Tipo adotado: <b>{R.tipoArm === 'estribo' ? 'estribo' : 'conector (stud)'}</b> → base {R.fywdBase} MPa
-              para h ≤ 15 cm, chegando a 435 MPa para h ≥ 35 cm.
+              f<sub>ywd</sub> depende apenas da espessura da laje. São três situações:
             </div>
-            {I.h <= 15 ? (
-              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>{R.fywdBase} MPa (h ≤ 15 cm)</>} res={fmt(R.fywd)} unit="MPa" />
-            ) : I.h >= 35 ? (
-              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>435 MPa (h ≥ 35 cm)</>} res={fmt(R.fywd)} unit="MPa" />
+            <div className="casos">
+              <div className={"caso" + (R.fywdCaso === 'menor' ? ' ativo' : '')}>
+                <span className="cond">h &lt; 15 cm</span>
+                <span className="val">f<sub>ywd</sub> = 250 MPa</span>
+              </div>
+              <div className={"caso" + (R.fywdCaso === 'interpolado' ? ' ativo' : '')}>
+                <span className="cond">15 cm ≤ h ≤ 35 cm</span>
+                <span className="val">interpolação linear</span>
+              </div>
+              <div className={"caso" + (R.fywdCaso === 'maior' ? ' ativo' : '')}>
+                <span className="cond">h &gt; 35 cm</span>
+                <span className="val">f<sub>ywd</sub> = 435 MPa</span>
+              </div>
+            </div>
+            <div className="muted" style={{fontSize: 12}}>
+              Neste caso h = {I.h} cm →{' '}
+              <b>{R.fywdCaso === 'menor' ? 'primeira situação' : R.fywdCaso === 'maior' ? 'terceira situação' : 'segunda situação (interpolação)'}</b>.
+            </div>
+            {R.fywdCaso === 'menor' ? (
+              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>250 MPa, pois h = {I.h} cm &lt; 15 cm</>} res={fmt(R.fywd)} unit="MPa" />
+            ) : R.fywdCaso === 'maior' ? (
+              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>435 MPa, pois h = {I.h} cm &gt; 35 cm</>} res={fmt(R.fywd)} unit="MPa" />
             ) : (
               <Eq lhs={<>f<sub>ywd</sub></>}
-                sym={<>{R.fywdBase} + (h − 15)·(435 − {R.fywdBase})/(35 − 15)</>}
-                sub={`${R.fywdBase} + (${I.h} − 15)·(435 − ${R.fywdBase})/20`}
+                sym={<>250 + (h − 15)·(435 − 250)/(35 − 15)</>}
+                sub={`250 + (${I.h} − 15)·185/20`}
                 res={fmt(R.fywd)} unit="MPa" />
             )}
           </ResultCard>
@@ -315,7 +332,7 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               ['s<sub>e</sub> ≤ 2·d', `${fmt(R.se_lim)} → adotado ${fmt(R.se)}`, 'cm'],
             ]} />
             {R.alertaEspac.length > 0 && (
-              <div className="callout" style={{background:'var(--err-bg)', borderColor:'var(--err-bd)', color:'var(--err)'}}>
+              <div className="callout">
                 ⚠ {R.alertaEspac.join(' · ')}
               </div>
             )}
@@ -347,6 +364,15 @@ function Results({ R, onConfigurarStuds, onExportar }) {
                     ou aumente a espessura da laje.
                   </div>
                 )}
+
+                {/* Desenho da configuração adotada, com os espaçamentos deste caso */}
+                <div className="fig-inline">
+                  <ConfiguracaoAdotada R={R} />
+                </div>
+                <Verif ok={R.studs.se_ok}
+                  cond={<>s<sub>e</sub> real na última camada = {fmt(R.studs.se_real)} {R.studs.se_ok ? '≤' : '>'} 2·d = {fmt(R.se_lim)} cm</>}
+                  okMsg="Espaçamento tangencial OK!"
+                  errMsg="Aumente n_conec para reduzir o espaçamento tangencial." />
               </>
             ) : (
               <div className="muted">Defina a armadura de punção na etapa 5 do formulário para concluir esta verificação.</div>

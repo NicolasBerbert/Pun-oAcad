@@ -319,9 +319,13 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
     const vazio = !Number.isFinite(next.s0) && !Number.isFinite(next.sr) && !Number.isFinite(next.se);
     set({ espac: vazio ? null : next });
   };
-  const erroS0 = dd && esp.s0 > 0.5 * dd ? `Excede 0,5·d = ${lim.s0} cm` : null;
-  const erroSr = dd && esp.sr > 0.75 * dd ? `Excede 0,75·d = ${lim.sr} cm` : null;
-  const erroSe = dd && esp.se > 2 * dd ? `Excede 2·d = ${lim.se} cm` : null;
+  // Tolerância de 0,005 cm: adotar exatamente o limite exibido (arredondado a
+  // 2 casas) é válido — sem isso, digitar 6,63 para um limite de 6,625 acusava
+  // "6,63 excede 6,63".
+  const TOL_ESP = 0.005;
+  const erroS0 = dd && esp.s0 > 0.5 * dd + TOL_ESP ? `Excede 0,5·d = ${lim.s0} cm` : null;
+  const erroSr = dd && esp.sr > 0.75 * dd + TOL_ESP ? `Excede 0,75·d = ${lim.sr} cm` : null;
+  const erroSe = dd && esp.se > 2 * dd + TOL_ESP ? `Excede 2·d = ${lim.se} cm` : null;
 
   // p e u3 ao vivo
   const s0Eff = Number.isFinite(esp.s0) && esp.s0 > 0 ? esp.s0 : (dd ? 0.5 * dd : null);

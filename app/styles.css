@@ -803,6 +803,76 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
 }
 .callout .btn { margin-left: auto; }
 
+/* ── Etapa 4: as três situações de fywd ──────────────────── */
+.casos { display: flex; flex-direction: column; gap: 5px; }
+.caso {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12.5px;
+  padding: 7px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--slate-600);
+}
+.caso .cond { font-family: var(--mono); min-width: 132px; }
+.caso .val { margin-left: auto; }
+.caso.ativo {
+  border-color: var(--blue-800);
+  background: white;
+  color: var(--blue-900);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--blue-800) inset;
+}
+
+/* ── Figuras dentro de um card de resultado ──────────────── */
+.fig-inline {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-2);
+  padding: 10px;
+  overflow-x: auto;
+}
+.fig-nota { font-size: 12px; color: var(--slate-600); line-height: 1.5; }
+
+/* ── Seção de documentação e detalhamento ────────────────── */
+.doc-section {
+  background: var(--paper-2);
+  border-top: 1px solid var(--line);
+  padding: 32px 24px 40px;
+}
+.doc-figs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.fig-card .result-card-body { overflow-x: auto; }
+
+.roteiro { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.roteiro li { display: flex; gap: 12px; align-items: flex-start; }
+.roteiro li > div { flex: 1; }
+.roteiro li b { font-size: 13px; color: var(--blue-950); }
+.roteiro li p { font-size: 12.5px; color: var(--slate-600); line-height: 1.55; margin-top: 2px; }
+.roteiro-n {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--blue-900); color: white;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+}
+
+/* tabela do coeficiente K */
+.tabela-k { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.tabela-k th, .tabela-k td {
+  border: 1px solid var(--line-strong);
+  padding: 6px 10px;
+  text-align: center;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.tabela-k th { background: var(--paper-2); color: var(--slate-700); font-weight: 600; }
+
 /* ── Footer ──────────────────────────────────────────────── */
 .footer {
   padding: 18px 24px;
