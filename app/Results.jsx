@@ -123,7 +123,7 @@ function Results({ R, onConfigurarStuds, onExportar }) {
         </div>
 
         {R.precisaArm && !temStuds && (
-          <div className="callout" style={{marginBottom: 16}}>
+          <div className="callout acao" style={{marginBottom: 16}}>
             <span>⚠ <b>Necessita armadura de punção.</b> O concreto isolado não atende ao contorno C′ — as etapas 8 e 9 só podem ser concluídas depois de definir a armadura.</span>
             <button className="btn btn-primary btn-sm" onClick={onConfigurarStuds}>Configurar armadura →</button>
           </div>
@@ -313,7 +313,7 @@ function Results({ R, onConfigurarStuds, onExportar }) {
               okMsg="Perímetro C′ OK — dispensa armadura de punção!"
               errMsg="Necessita armadura de punção!" />
             {!R.verif2 && !temStuds && (
-              <div className="callout">
+              <div className="callout acao">
                 <span>Prossiga para a etapa 8: com a armadura definida, o contorno C′ é reverificado contra τ<sub>Rd3</sub>.</span>
                 <button className="btn btn-primary btn-sm" onClick={onConfigurarStuds}>Configurar armadura →</button>
               </div>

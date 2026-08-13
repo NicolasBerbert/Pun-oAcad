@@ -76,9 +76,9 @@ function Field({ label, helpKey, value, onChange, onFocus, placeholder, suffix, 
 }
 
 // generic step shell
-function StepCard({ n, title, active, done, locked, summary, onClick, children }) {
+function StepCard({ n, title, active, done, locked, summary, onClick, children, id }) {
   return (
-    <div className={"step-card" + (active ? ' active' : '') + (done ? ' done' : '') + (locked ? ' locked' : '') + (!active && !locked ? ' collapsed' : '')}>
+    <div id={id} className={"step-card" + (active ? ' active' : '') + (done ? ' done' : '') + (locked ? ' locked' : '') + (!active && !locked ? ' collapsed' : '')}>
       <div className="step-head" onClick={onClick}>
         <span className="num">{n}</span>
         <h3>{title}</h3>
@@ -338,7 +338,7 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
   const u3calc = u1Live && dd && pDist ? u1Live + 2 * Math.PI * (2 * dd + pDist) : null;
 
   return (
-    <StepCard n={5} title="Armadura de punção" active={active} done={!!data.studs?.phi && active === false} locked={locked && !active} summary={summary} onClick={onActivate}>
+    <StepCard id="step-studs" n={5} title="Armadura de punção" active={active} done={!!data.studs?.phi && active === false} locked={locked && !active} summary={summary} onClick={onActivate}>
       {locked && (
         <div className="callout" style={{marginBottom: 8}}>
           🔒 Esta etapa é ativada após o cálculo indicar necessidade de armadura de punção.

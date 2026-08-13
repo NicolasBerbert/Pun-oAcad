@@ -101,12 +101,26 @@ function App() {
     }, 100);
   };
 
+  // Leva o usuário de fato até os campos da armadura de punção: abre a etapa 5,
+  // rola a janela até o formulário, rola a coluna do formulário até o card e
+  // põe o foco no primeiro campo (Ø do conector).
   const onConfigurarStuds = () => {
     setActiveStep(5);
     setTimeout(() => {
-      const el = document.querySelector('.form-scroll');
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    }, 100);
+      const card = document.getElementById('step-studs');
+      if (!card) return;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // foca o Ø do conector (primeiro campo do bloco de características),
+      // não o radio de tipo de armadura que abre o card
+      const primeiro = card.querySelector('.grid-3 select, .grid-3 input')
+        || card.querySelector('select, input');
+      if (primeiro) {
+        // espera a rolagem assentar antes de focar, senão o browser salta
+        setTimeout(() => primeiro.focus({ preventScroll: true }), 420);
+      }
+      card.classList.add('destacado');
+      setTimeout(() => card.classList.remove('destacado'), 1600);
+    }, 80);
   };
 
   // Compute all "step done" flags

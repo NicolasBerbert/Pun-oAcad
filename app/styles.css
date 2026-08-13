@@ -792,16 +792,34 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
 .verdict-pill.warn .dot { background: var(--warn); }
 .verdict-pill.err .dot  { background: var(--err); }
 
+/* Texto corrido por padrão: como bloco, <sub>/<b> continuam inline. Com
+   display:flex cada nó de texto virava um item, quebrando "reduza sr,". */
 .callout {
   background: var(--warn-bg);
   border: 1px solid var(--warn-bd);
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 12.5px;
+  line-height: 1.5;
   color: var(--warn);
+  display: block;
+}
+/* Variante com botão de ação à direita */
+.callout.acao {
   display: flex; align-items: center; gap: 10px;
 }
-.callout .btn { margin-left: auto; }
+.callout.acao > span { flex: 1 1 auto; }
+.callout.acao .btn { margin-left: auto; flex: 0 0 auto; }
+
+/* Realce temporário ao chegar via "Configurar armadura →" */
+.step-card.destacado {
+  animation: pulso-destaque 1.6s ease-out;
+}
+@keyframes pulso-destaque {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29, 68, 153, 0); }
+  15%      { box-shadow: 0 0 0 4px rgba(29, 68, 153, 0.30); }
+  70%      { box-shadow: 0 0 0 4px rgba(29, 68, 153, 0.18); }
+}
 
 /* ── Etapa 4: as três situações de fywd ──────────────────── */
 .casos { display: flex; flex-direction: column; gap: 5px; }
@@ -840,13 +858,28 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
   border-top: 1px solid var(--line);
   padding: 32px 24px 40px;
 }
+/* Duas colunas fixas e align-items:start — sem isso um card alto esticava os
+   vizinhos baixos, dando a impressão de quadros de tamanhos/formatos diversos. */
 .doc-figs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
 }
+@media (max-width: 900px) {
+  .doc-figs { grid-template-columns: minmax(0, 1fr); }
+}
 .fig-card .result-card-body { overflow-x: auto; }
+.fig-card.larga { grid-column: 1 / -1; }
+/* Todas as figuras têm viewBox de mesma largura e o mesmo teto de renderização,
+   para que traços e textos saiam na mesma escala em todos os quadros. */
+.fig-card svg, .fig-inline svg {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  margin: 0 auto;
+}
 
 .roteiro { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .roteiro li { display: flex; gap: 12px; align-items: flex-start; }

@@ -58,10 +58,12 @@ function HelperPilar({ secao, C1, C2, diam }) {
 
 // 2) Axonometric column with force + moments
 function HelperCargas({ Fsk, Mxk, Myk }) {
-  const W = 220, H = 150;
-  const scaleF = Math.min(1.4, 0.6 + (Fsk || 0) / 400);
-  const scaleM = Math.min(1.5, 0.7 + Math.log((Mxk || 0) + (Myk || 0) + 1) / 5);
-  const cx = W / 2, cy = H / 2 + 8;
+  // Cada esforço ocupa um setor próprio: Fsk acima, Mx à esquerda, My à
+  // direita. Antes os três eram desenhados sobre o topo do pilar e se
+  // sobrepunham.
+  const W = 236, H = 168;
+  const cx = 104, cy = 104;
+  const topoPilar = cy - 38;
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
       <defs>
@@ -75,33 +77,38 @@ function HelperCargas({ Fsk, Mxk, Myk }) {
           <path d="M0,0 L10,5 L0,10 z" fill="#16a394" />
         </marker>
       </defs>
-      {/* slab plane (parallelogram) */}
-      <polygon points={`${cx-70},${cy+18} ${cx+70},${cy+18} ${cx+90},${cy+38} ${cx-50},${cy+38}`} fill="#e6ecf3" stroke="#94a3b8" strokeWidth="0.8" />
-      {/* column box */}
-      <polygon points={`${cx-14},${cy-40} ${cx+14},${cy-40} ${cx+22},${cy-32} ${cx-6},${cy-32} ${cx-6},${cy+18} ${cx-14},${cy+18}`} fill="#c4c8cf" stroke="#3b465a" strokeWidth="0.8" />
-      <polygon points={`${cx-14},${cy-40} ${cx+14},${cy-40} ${cx+14},${cy+10} ${cx-14},${cy+10}`} fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
-      {/* Force Fsk — topo da seta limitado para não invadir a legenda */}
-      {Fsk > 0 && (
+      {/* laje (paralelogramo em perspectiva) */}
+      <polygon points={`${cx-62},${cy+16} ${cx+58},${cy+16} ${cx+76},${cy+34} ${cx-44},${cy+34}`}
+        fill="#e6ecf3" stroke="#94a3b8" strokeWidth="0.8" />
+      {/* pilar em axonometria: face direita, topo e face frontal */}
+      <polygon points={`${cx+13},${topoPilar} ${cx+20},${topoPilar-7} ${cx+20},${cy+9} ${cx+13},${cy+16}`}
+        fill="#b8bdc6" stroke="#3b465a" strokeWidth="0.8" />
+      <polygon points={`${cx-13},${topoPilar} ${cx-6},${topoPilar-7} ${cx+20},${topoPilar-7} ${cx+13},${topoPilar}`}
+        fill="#d6dae1" stroke="#3b465a" strokeWidth="0.8" />
+      <rect x={cx-13} y={topoPilar} width="26" height={cy+16-topoPilar} fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
+
+      {/* Fsk — seta vertical descendo sobre o topo do pilar */}
+      {Number.isFinite(Fsk) && Fsk !== 0 && (
         <g>
-          <line x1={cx} y1={Math.max(cy-75*scaleF, 22)} x2={cx} y2={cy-44} stroke="#b42318" strokeWidth="2.4" markerEnd="url(#ahr)" />
-          <text x={cx+6} y={Math.max(cy-75*scaleF, 22)+10} fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
+          <line x1={cx} y1="30" x2={cx} y2={topoPilar - 12} stroke="#b42318" strokeWidth="2.4" markerEnd="url(#ahr)" />
+          <text x={cx + 7} y="40" fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
         </g>
       )}
-      {/* Moment Mxk — curved around x axis */}
+      {/* Mx — arco à esquerda, em faixa própria */}
       {Mxk > 0 && (
-        <g transform={`translate(${cx-3},${cy-40})`}>
-          <path d={`M -22,0 A 22,12 0 0,1 22,0`} stroke="#9333ea" strokeWidth="2" fill="none" markerEnd="url(#ahm)" />
-          <text x="0" y="-6" textAnchor="middle" fontSize="9" fill="#9333ea" fontWeight="700" fontFamily="Inter">Mx</text>
+        <g transform={`translate(${cx - 46},${cy - 14})`}>
+          <path d="M -16,8 A 17,10 0 0,1 16,4" stroke="#9333ea" strokeWidth="2" fill="none" markerEnd="url(#ahm)" />
+          <text x="-4" y="-6" textAnchor="middle" fontSize="9.5" fill="#9333ea" fontWeight="700" fontFamily="Inter">Mx</text>
         </g>
       )}
-      {/* Moment Myk — curved around y axis */}
+      {/* My — arco à direita, em faixa própria */}
       {Myk > 0 && (
-        <g transform={`translate(${cx+1},${cy-36})`}>
-          <path d={`M -22,4 A 22,12 0 0,0 22,4`} stroke="#16a394" strokeWidth="2" fill="none" markerEnd="url(#ahy)" />
-          <text x="0" y="18" textAnchor="middle" fontSize="9" fill="#16a394" fontWeight="700" fontFamily="Inter">My</text>
+        <g transform={`translate(${cx + 54},${cy - 14})`}>
+          <path d="M -16,4 A 17,10 0 0,0 16,8" stroke="#16a394" strokeWidth="2" fill="none" markerEnd="url(#ahy)" />
+          <text x="4" y="-6" textAnchor="middle" fontSize="9.5" fill="#16a394" fontWeight="700" fontFamily="Inter">My</text>
         </g>
       )}
-      <text x="8" y={H-4} fontSize="10" fill="#64748b" fontFamily="Inter">Esforços no topo do pilar</text>
+      <text x="8" y={H-5} fontSize="10" fill="#64748b" fontFamily="Inter">Esforços no topo do pilar</text>
     </svg>
   );
 }

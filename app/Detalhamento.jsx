@@ -81,7 +81,7 @@ function contornoD(circ, D, C1, C2, off, X, Y, S) {
 function ConfiguracaoAdotada({ R }) {
   if (!R || !R.studs || !R.studs.layout) return null;
   const id = 'cfg';
-  const W = 620, H = 490;
+  const W = 560, H = 470;
   const { circ, D, cC1: C1, cC2: C2, d } = R;
   const { s0, sr, etapa9 } = R;
   const lay = R.studs.layout;
@@ -92,7 +92,7 @@ function ConfiguracaoAdotada({ R }) {
   const extX = (circ ? D / 2 : C1 / 2) + offCpp;
   const extY = (circ ? D / 2 : C2 / 2) + offCpp;
   // margem esquerda maior: abriga a escada de cotas fora do desenho
-  const mEsq = 168, mDir = 34, mTopo = 46, mBase = 72;
+  const mEsq = 150, mDir = 30, mTopo = 46, mBase = 76;
   const S = Math.min((W - mEsq - mDir) / (2 * extX), (H - mTopo - mBase) / (2 * extY));
   const cx = mEsq + (W - mEsq - mDir) / 2;
   const cy = mTopo + (H - mTopo - mBase) / 2;
@@ -103,7 +103,7 @@ function ConfiguracaoAdotada({ R }) {
   const yFace = Y(faceTopo);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
 
       {/* contorno C″ */}
@@ -234,7 +234,7 @@ function FigCorteFaixa({ R }) {
   const dExtLbl = extY ? 'dy' : 'dx', dIntLbl = extY ? 'dx' : 'dy';
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
       <text x={W / 2} y="16" textAnchor="middle" fontSize="11" fontFamily="Inter" fill={SUAVE}>
         Corte da laje — faixa de cálculo de ρ
@@ -296,7 +296,7 @@ function FigCorteFaixa({ R }) {
 // ============================================================
 function FigMomentos({ R }) {
   const id = 'f2';
-  const W = 400, H = 250;
+  const W = 560, H = 250;
   const { circ, D, cC1: C1, cC2: C2, inputs: I } = R;
   const larg = circ ? D : C1, alt = circ ? D : C2;
   const S = Math.min(170 / larg, 110 / alt);
@@ -304,7 +304,7 @@ function FigMomentos({ R }) {
   const w = larg * S, hh = alt * S;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
       <text x={W / 2} y="16" textAnchor="middle" fontSize="11" fontFamily="Inter" fill={SUAVE}>
         Pilar em planta — momentos característicos
@@ -344,7 +344,7 @@ function FigMomentos({ R }) {
 // ============================================================
 function FigPerimetroCl({ R }) {
   const id = 'f3';
-  const W = 400, H = 300;
+  const W = 560, H = 300;
   const { circ, D, cC1: C1, cC2: C2, d, u1, u2 } = R;
   const extX = (circ ? D / 2 : C1 / 2) + 2 * d;
   const extY = (circ ? D / 2 : C2 / 2) + 2 * d;
@@ -353,7 +353,7 @@ function FigPerimetroCl({ R }) {
   const X = cm => cx + cm * S, Y = cm => cy + cm * S;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
       <text x={W / 2} y="16" textAnchor="middle" fontSize="11" fontFamily="Inter" fill={SUAVE}>
         Contornos de controle C e C′
@@ -429,7 +429,7 @@ function FigTabelaK({ R }) {
 // ============================================================
 function FigOrientacaoMomentos({ R }) {
   const id = 'f5';
-  const W = 520, H = 230;
+  const W = 560, H = 230;
   const { circ, D, cC1: C1, cC2: C2, d } = R;
   if (circ) {
     return <div className="fig-nota">Pilar circular: não há troca de C₁/C₂ — K = 0,60 nas duas direções.</div>;
@@ -468,7 +468,7 @@ function FigOrientacaoMomentos({ R }) {
   };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
       <text x={W / 2} y="16" textAnchor="middle" fontSize="11" fontFamily="Inter" fill={SUAVE}>
         Orientação dos momentos — C₁ é sempre a dimensão paralela à excentricidade
@@ -487,7 +487,7 @@ function FigContornoCpp({ R }) {
     return <div className="fig-nota">Depende da armadura de punção definida na etapa 5.</div>;
   }
   const id = 'f6';
-  const W = 420, H = 340;
+  const W = 560, H = 340;
   const { circ, D, cC1: C1, cC2: C2, d } = R;
   const lay = R.studs.layout;
   const p = R.etapa9.p;
@@ -499,7 +499,7 @@ function FigContornoCpp({ R }) {
   const X = cm => cx + cm * S, Y = cm => cy + cm * S;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
       <text x={W / 2} y="16" textAnchor="middle" fontSize="11" fontFamily="Inter" fill={SUAVE}>
         Contorno C″ — 2d além da última camada
@@ -605,6 +605,10 @@ function Detalhamento({ R }) {
             <FigPerimetroCl R={R} />
           </FigCard>
 
+          <FigCard titulo="Contorno C″" cite="item 19.5.3.4">
+            <FigContornoCpp R={R} />
+          </FigCard>
+
           <FigCard titulo="Coeficiente K" cite="item 19.5.2.3">
             <FigTabelaK R={R} />
           </FigCard>
@@ -613,24 +617,22 @@ function Detalhamento({ R }) {
             <FigOrientacaoMomentos R={R} />
           </FigCard>
 
+          {/* por último e ocupando a linha inteira: é o desenho principal e
+              evita deixar meia linha vazia no fim da grade */}
           {temStuds && (
-            <FigCard titulo="Configuração da armadura adotada" cite="item 19.5.3.3">
+            <FigCard titulo="Configuração da armadura adotada" cite="item 19.5.3.3" larga>
               <ConfiguracaoAdotada R={R} />
             </FigCard>
           )}
-
-          <FigCard titulo="Contorno C″" cite="item 19.5.3.4">
-            <FigContornoCpp R={R} />
-          </FigCard>
         </div>
       </div>
     </div>
   );
 }
 
-function FigCard({ titulo, cite, children }) {
+function FigCard({ titulo, cite, children, larga }) {
   return (
-    <div className="result-card fig-card">
+    <div className={"result-card fig-card" + (larga ? ' larga' : '')}>
       <div className="result-card-head">
         <h4>{titulo}</h4>
         {cite && <span className="ref">{cite}</span>}
