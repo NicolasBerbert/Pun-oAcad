@@ -68,7 +68,23 @@ function Verif({ ok, cond, okMsg, errMsg }) {
   );
 }
 
-function Results({ R, onConfigurarStuds, onExportar }) {
+// Gera o DXF e dispara o download
+function baixarDXF(R, nome) {
+  const txt = window.gerarDXF(R, nome);
+  if (!txt) return;
+  const arquivo = (nome || 'puncao').replace(/[\\/:*?"<>|]/g, '-').trim() || 'puncao';
+  const blob = new Blob([txt], { type: 'application/dxf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${arquivo}.dxf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function Results({ R, onConfigurarStuds, onExportar, projectName }) {
   if (!R) return null;
   if (R.error) {
     return (
@@ -101,6 +117,10 @@ function Results({ R, onConfigurarStuds, onExportar }) {
           <div className="actions" style={{marginLeft:'auto'}}>
             <button className="btn btn-sm" onClick={() => window.print()}>
               <Ico name="print"/> Imprimir
+            </button>
+            <button className="btn btn-sm" onClick={() => baixarDXF(R, projectName)}
+              title="Desenho em DXF, aberto nativamente pelo AutoCAD (Salvar como… → .dwg)">
+              <Ico name="cad"/> Exportar DXF (AutoCAD)
             </button>
             <button className="btn btn-sm btn-primary" onClick={onExportar}>
               <Ico name="download"/> Exportar relatório PDF
@@ -471,6 +491,7 @@ function Tile({ name, label, ok, verdict }) {
 function Ico({ name }) {
   if (name === 'print') return <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 4V2h8v2M4 12H2V6h12v6h-2M5 9h6v5H5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>;
   if (name === 'download') return <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0l-3-3m3 3l3-3M3 13h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  if (name === 'cad') return <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="11" height="11" rx="1" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="8" r="2.6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>;
   return null;
 }
 

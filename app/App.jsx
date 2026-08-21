@@ -267,7 +267,7 @@ function App() {
 
       {/* ── Results ── */}
       <div id="results-anchor" />
-      {calculated && <Results R={results} onConfigurarStuds={onConfigurarStuds} onExportar={() => window.print()} />}
+      {calculated && <Results R={results} onConfigurarStuds={onConfigurarStuds} onExportar={() => window.print()} projectName={projectName} />}
       {calculated && <Detalhamento R={results} />}
 
       {/* ── Footer ── */}
