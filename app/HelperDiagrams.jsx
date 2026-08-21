@@ -98,11 +98,17 @@ function HelperCargas({ Fsk, Mxk, Myk }) {
       <rect x="72" y={oy + 6} width="24" height={baseP - oy - 6}
         fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
 
-      {/* Fsk — vetor força, ponta simples, praticamente vertical */}
+      {/* Fsk — vetor força, ponta simples. Convenção: valor positivo aponta
+          PARA BAIXO (carga de gravidade descendo sobre o topo do pilar);
+          um Fsk negativo (uplift) inverte o sentido. */}
       {Number.isFinite(Fsk) && Fsk !== 0 && (
         <g>
-          <line x1={vx} y1={vy} x2="74" y2="16" stroke="#b42318" strokeWidth="1.8" markerEnd="url(#ahr)" />
-          <text x="42" y="24" fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
+          {Fsk > 0 ? (
+            <line x1={vx} y1="16" x2={vx} y2={vy - 2} stroke="#b42318" strokeWidth="1.8" markerEnd="url(#ahr)" />
+          ) : (
+            <line x1={vx} y1={vy - 2} x2={vx} y2="16" stroke="#b42318" strokeWidth="1.8" markerEnd="url(#ahr)" />
+          )}
+          <text x={vx - 6} y="30" textAnchor="end" fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
         </g>
       )}
       {/* Myk — vetor momento, ponta dupla, na diagonal (eixo y) */}
