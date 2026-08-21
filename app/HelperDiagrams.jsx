@@ -56,56 +56,67 @@ function HelperPilar({ secao, C1, C2, diam }) {
   );
 }
 
-// 2) Axonometric column with force + moments
+// 2) Axonometric column with force + moment vectors
 function HelperCargas({ Fsk, Mxk, Myk }) {
-  // Cada esforço ocupa um setor próprio: Fsk acima, Mx à esquerda, My à
-  // direita. Antes os três eram desenhados sobre o topo do pilar e se
-  // sobrepunham.
-  const W = 236, H = 168;
-  const cx = 104, cy = 104;
-  const topoPilar = cy - 38;
+  // Convenção vetorial: a força é um vetor de ponta simples e os momentos são
+  // vetores de ponta DUPLA (regra da mão direita). Os três partem do topo do
+  // pilar, separados angularmente para não se sobreporem.
+  const W = 236, H = 156;
+  const oy = 74;                   // cota da aresta frontal do topo do pilar
+  const baseP = 112;               // base do pilar (plano da laje)
+  const vx = 89, vy = 75;          // origem dos vetores: centro da face de topo
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
       <defs>
-        <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#b42318" />
+        {/* ponta simples — vetor força */}
+        <marker id="ahr" viewBox="0 0 9 8" refX="9" refY="4"
+          markerWidth="9" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,0 L9,4 L0,8 z" fill="#b42318" />
         </marker>
-        <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#9333ea" />
+        {/* ponta dupla — vetor de momento (regra da mão direita).
+            As duas farpas ficam separadas por um vão para lerem como duas. */}
+        <marker id="ahm2" viewBox="0 0 15 8" refX="15" refY="4"
+          markerWidth="15" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,0 L6,4 L0,8 z" fill="#9333ea" />
+          <path d="M9,0 L15,4 L9,8 z" fill="#9333ea" />
         </marker>
-        <marker id="ahy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#16a394" />
+        <marker id="ahy2" viewBox="0 0 15 8" refX="15" refY="4"
+          markerWidth="15" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,0 L6,4 L0,8 z" fill="#16a394" />
+          <path d="M9,0 L15,4 L9,8 z" fill="#16a394" />
         </marker>
       </defs>
+
       {/* laje (paralelogramo em perspectiva) */}
-      <polygon points={`${cx-62},${cy+16} ${cx+58},${cy+16} ${cx+76},${cy+34} ${cx-44},${cy+34}`}
+      <polygon points={`14,${baseP} 118,${baseP} 144,${baseP + 24} 40,${baseP + 24}`}
         fill="#e6ecf3" stroke="#94a3b8" strokeWidth="0.8" />
       {/* pilar em axonometria: face direita, topo e face frontal */}
-      <polygon points={`${cx+13},${topoPilar} ${cx+20},${topoPilar-7} ${cx+20},${cy+9} ${cx+13},${cy+16}`}
+      <polygon points={`96,${oy + 6} 106,${oy - 4} 106,${baseP - 10} 96,${baseP}`}
         fill="#b8bdc6" stroke="#3b465a" strokeWidth="0.8" />
-      <polygon points={`${cx-13},${topoPilar} ${cx-6},${topoPilar-7} ${cx+20},${topoPilar-7} ${cx+13},${topoPilar}`}
+      <polygon points={`72,${oy + 6} 82,${oy - 4} 106,${oy - 4} 96,${oy + 6}`}
         fill="#d6dae1" stroke="#3b465a" strokeWidth="0.8" />
-      <rect x={cx-13} y={topoPilar} width="26" height={cy+16-topoPilar} fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
+      <rect x="72" y={oy + 6} width="24" height={baseP - oy - 6}
+        fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
 
-      {/* Fsk — seta vertical descendo sobre o topo do pilar */}
+      {/* Fsk — vetor força, ponta simples, praticamente vertical */}
       {Number.isFinite(Fsk) && Fsk !== 0 && (
         <g>
-          <line x1={cx} y1="30" x2={cx} y2={topoPilar - 12} stroke="#b42318" strokeWidth="2.4" markerEnd="url(#ahr)" />
-          <text x={cx + 7} y="40" fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
+          <line x1={vx} y1={vy} x2="74" y2="16" stroke="#b42318" strokeWidth="1.8" markerEnd="url(#ahr)" />
+          <text x="42" y="24" fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
         </g>
       )}
-      {/* Mx — arco à esquerda, em faixa própria */}
-      {Mxk > 0 && (
-        <g transform={`translate(${cx - 46},${cy - 14})`}>
-          <path d="M -16,8 A 17,10 0 0,1 16,4" stroke="#9333ea" strokeWidth="2" fill="none" markerEnd="url(#ahm)" />
-          <text x="-4" y="-6" textAnchor="middle" fontSize="9.5" fill="#9333ea" fontWeight="700" fontFamily="Inter">Mx</text>
-        </g>
-      )}
-      {/* My — arco à direita, em faixa própria */}
+      {/* Myk — vetor momento, ponta dupla, na diagonal (eixo y) */}
       {Myk > 0 && (
-        <g transform={`translate(${cx + 54},${cy - 14})`}>
-          <path d="M -16,4 A 17,10 0 0,0 16,8" stroke="#16a394" strokeWidth="2" fill="none" markerEnd="url(#ahy)" />
-          <text x="4" y="-6" textAnchor="middle" fontSize="9.5" fill="#16a394" fontWeight="700" fontFamily="Inter">My</text>
+        <g>
+          <line x1={vx} y1={vy} x2="146" y2="26" stroke="#16a394" strokeWidth="1.8" markerEnd="url(#ahy2)" />
+          <text x="152" y="22" fontSize="10" fill="#16a394" fontWeight="700" fontFamily="Inter">Myk</text>
+        </g>
+      )}
+      {/* Mxk — vetor momento, ponta dupla, na horizontal (eixo x) */}
+      {Mxk > 0 && (
+        <g>
+          <line x1={vx} y1={vy} x2="166" y2={oy + 14} stroke="#9333ea" strokeWidth="1.8" markerEnd="url(#ahm2)" />
+          <text x="150" y={oy + 30} fontSize="10" fill="#9333ea" fontWeight="700" fontFamily="Inter">Mxk</text>
         </g>
       )}
       <text x="8" y={H-5} fontSize="10" fill="#64748b" fontFamily="Inter">Esforços no topo do pilar</text>
