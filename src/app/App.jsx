@@ -22,6 +22,8 @@ const DEFAULT_DATA = {
   tipoArm: 'estribo',
   espac: null,
   u3_manual: null,
+  axial: null,   // { ativo, Nsdx, Nsdy, Ac } — compressão axial (σcp)
+  ccp: null,     // { ativo, phi_h, s_h, phi_v, s_v } — colapso progressivo
 };
 
 const STEP_TITLES = ['Pilar', 'Cargas', 'Laje', 'Armaduras', 'Studs', 'Resultados'];
@@ -110,6 +112,8 @@ function App() {
       tipoArm: data.tipoArm || 'estribo',
       espac: data.espac || null,
       u3_manual: data.u3_manual || null,
+      axial: data.axial?.ativo ? data.axial : null,
+      ccp: data.ccp?.ativo ? data.ccp : null,
     });
     setResults(R);
     setCalculated(true);

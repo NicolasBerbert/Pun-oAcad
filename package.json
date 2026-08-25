@@ -1,7 +1,7 @@
 {
   "name": "puncaoacad",
   "productName": "PunçãoAcad",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Dimensionamento de punção em lajes de concreto armado — ABNT NBR 6118",
   "author": {
     "name": "Nicolas Berbert",
@@ -13,7 +13,7 @@
     "build": "node scripts/build.mjs",
     "icone": "node scripts/icone.mjs",
     "start": "npm run build && electron .",
-    "teste": "npm run build && electron scripts/smoke.js && electron scripts/smoke-fluxo.js && electron scripts/smoke-dxf.js",
+    "teste": "node test/referencia.mjs && npm run build && electron scripts/smoke.js && electron scripts/smoke-fluxo.js && electron scripts/smoke-dxf.js && electron scripts/smoke-novidades.js",
     "dist": "npm run preparar-cache && npm run build && electron-builder --win",
     "dist:dir": "npm run preparar-cache && npm run build && electron-builder --win --dir",
     "preparar-cache": "node scripts/preparar-cache.mjs"

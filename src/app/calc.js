@@ -87,6 +87,8 @@ function calcularPuncao(inputs) {
     tipoArm,        // 'estribo' (padrão) | 'conector' — base de fywd (item 19.4.2)
     espac,          // opcional: { s0, sr, se } adotados em cm
     u3_manual,      // opcional: perímetro C″ medido em CAD (cm)
+    axial,          // opcional: { Nsdx, Nsdy, Ac } — kN, kN, cm² (σcp)
+    ccp,            // opcional: { ativo, phi_h, s_h, phi_v, s_v } — colapso progressivo
   } = inputs;
 
   // Pilar circular interno tem tratamento próprio (item 19.5.2.3):
@@ -195,8 +197,29 @@ function calcularPuncao(inputs) {
   const tauSd_Cl_Mx = 10 * kx * aMsd1x / (Wpx * d);     // parcela de Mx
   const tauSd_Cl_My = 10 * ky * aMsd1y / (Wpy * d);     // parcela de My
   const tauSd_Cl = tauSd_Cl_F + tauSd_Cl_Mx + tauSd_Cl_My;
-  const fator_d = 1 + Math.sqrt(20 / d);
-  const tauRd1 = 0.13 * fator_d * Math.pow(100 * rho * fck, 1/3);
+  // Coeficiente de escala (size effect). A NBR 6118:2023 limita ke a 2 —
+  // para lajes finas, 1 + √(20/d) passa desse valor e o limite passa a valer.
+  const KE_MAX = 2;
+  const fator_d_bruto = 1 + Math.sqrt(20 / d);
+  const fator_d = Math.min(fator_d_bruto, KE_MAX);
+  const ke_limitado = fator_d_bruto > KE_MAX;
+
+  // Parcela favorável da compressão axial (protensão ou pilar comprimido):
+  //   σcp = (σcp,x + σcp,y)/2 ≤ 3,5 MPa,  σcp,i = Nsd,i / Ac
+  // Entra em τRd1 como +0,10·σcp. Sem Nsd informado, σcp = 0 e a expressão
+  // volta a ser a da laje sem compressão axial.
+  const SIGMA_CP_MAX = 3.5;
+  const Ac = axial && Number.isFinite(axial.Ac) && axial.Ac > 0 ? axial.Ac : null;
+  const Nsdx = axial && Number.isFinite(axial.Nsdx) ? axial.Nsdx : 0;
+  const Nsdy = axial && Number.isFinite(axial.Nsdy) ? axial.Nsdy : 0;
+  const temAxial = !!Ac && (Nsdx !== 0 || Nsdy !== 0);
+  const sigma_cpx = temAxial ? 10 * Nsdx / Ac : 0;   // kN/cm² → MPa
+  const sigma_cpy = temAxial ? 10 * Nsdy / Ac : 0;
+  const sigma_cp_bruto = (sigma_cpx + sigma_cpy) / 2;
+  const sigma_cp = Math.min(sigma_cp_bruto, SIGMA_CP_MAX);
+  const sigma_cp_limitado = sigma_cp_bruto > SIGMA_CP_MAX;
+
+  const tauRd1 = 0.13 * fator_d * Math.pow(100 * rho * fck, 1/3) + 0.10 * sigma_cp;
   const verif2 = tauSd_Cl <= tauRd1;
   const precisaArm = !verif2;
 
@@ -268,6 +291,49 @@ function calcularPuncao(inputs) {
     };
   }
 
+  // ── Etapa 10 — Colapso progressivo (item 19.5.4) ─────────
+  // A armadura de flexão INFERIOR que atravessa o contorno C precisa,
+  // sozinha, suspender a força de punção caso a ligação rompa:
+  //     ΣAs · fyd ≥ FSd
+  // onde ΣAs é a soma das barras inferiores que cruzam CADA face do pilar.
+  // As barras horizontais (direção x) cruzam as duas faces de largura C2;
+  // as verticais (direção y) cruzam as duas faces de largura C1. A face
+  // com menos aço governa.
+  let colapso = null;
+  if (ccp && ccp.ativo) {
+    const bitola = v => (Number.isFinite(v) && v > 0 ? v / 10 : null); // mm → cm
+    const area = v => Math.PI * v * v / 4;
+    const ph = bitola(ccp.phi_h), pv = bitola(ccp.phi_v);
+    const sh = Number.isFinite(ccp.s_h) && ccp.s_h > 0 ? ccp.s_h : null;
+    const sv = Number.isFinite(ccp.s_v) && ccp.s_v > 0 ? ccp.s_v : null;
+
+    if (ph && sh && pv && sv) {
+      // largura de cada face atravessada por cada direção de armadura
+      const largH = circ ? D : cC2;   // barras em x cruzam a face de largura C2
+      const largV = circ ? D : cC1;   // barras em y cruzam a face de largura C1
+      const As1h = area(ph), As1v = area(pv);
+      const nh_exato = largH / sh, nv_exato = largV / sv;
+      const As_h = nh_exato * As1h;   // por face, cm²
+      const As_v = nv_exato * As1v;
+      // fyd em MPa → kN/cm² é fyd/10
+      const As_nec = 10 * aFsd / fyd;
+      const As_gov = Math.min(As_h, As_v);
+      colapso = {
+        phi_h: ccp.phi_h, s_h: sh, phi_v: ccp.phi_v, s_v: sv,
+        As1h, As1v, largH, largV,
+        nh_exato, nv_exato, nh: Math.round(nh_exato), nv: Math.round(nv_exato),
+        As_h, As_v, As_gov, As_nec,
+        direcaoGov: As_h <= As_v ? 'h' : 'v',
+        // soma das quatro faces, informativa
+        As_total: 2 * As_h + 2 * As_v,
+        Rd: As_gov * fyd / 10,          // kN resistidos pela face crítica
+        verif5: As_gov >= As_nec,
+      };
+    } else {
+      colapso = { incompleto: true };
+    }
+  }
+
   return {
     inputs,
     secao, circ, D,
@@ -281,13 +347,100 @@ function calcularPuncao(inputs) {
     alphaV, tauRd2, tauSd_C, verif1,
     kx, ky, Wpx, Wpy,
     tauSd_Cl_F, tauSd_Cl_Mx, tauSd_Cl_My, tauSd_Cl,
-    tauRd1, verif2, precisaArm, fator_d,
+    tauRd1, verif2, precisaArm, fator_d, fator_d_bruto, ke_limitado,
+    sigma_cp, sigma_cpx, sigma_cpy, sigma_cp_bruto, sigma_cp_limitado, temAxial, Ac,
     s0_lim, sr_lim, se_lim, s0, sr, se, alertaEspac,
     studs: studsOut, tauRd3, tauRd3_c, tauRd3_s, verif3,
     etapa9,
+    colapso,
   };
+}
+
+// ============================================================
+//  Dimensionamento automático da armadura de punção
+//
+//  Em vez de o projetista arbitrar a armadura e conferir se passa,
+//  aqui o programa busca a menor armadura que iguala ou supera a
+//  solicitação. A busca é separada em duas, porque as variáveis não
+//  se cruzam:
+//
+//    • Etapa 8 (contorno C′) → número de CONECTORES POR CAMADA.
+//      Só o nconec entra em Asw, e Asw não altera nenhum perímetro.
+//
+//    • Etapa 9 (contorno C″) → número de CAMADAS.
+//      Só o ncam afasta o contorno C″ do pilar (p = s0 + (ncam−1)·sr),
+//      e isso não altera Asw.
+//
+//  Como o ncam também empurra a camada externa para fora, aumentando o
+//  espaçamento tangencial se, o ncam é resolvido primeiro e o nconec
+//  depois — assim o limite se ≤ 2d é conferido já na geometria final.
+//
+//  A bitola Ø é decisão construtiva do projetista e não é alterada.
+// ============================================================
+function dimensionarArmadura(inputs, opcoes = {}) {
+  const NCAM_MAX = opcoes.ncamMax || 25;
+  const NCONEC_MAX = opcoes.nconecMax || 48;
+  // Rosetas simétricas: conectores em número par, a partir de 4.
+  const passoNconec = 2, nconecMin = 4;
+
+  const phi = Number.isFinite(inputs.studs?.phi) && inputs.studs.phi > 0
+    ? inputs.studs.phi
+    : (opcoes.phi || 10);
+
+  const tentar = (nconec, ncam) =>
+    calcularPuncao({ ...inputs, studs: { phi, nconec, ncam } });
+
+  const base = calcularPuncao(inputs);
+  if (base.error) return { ok: false, motivo: 'erro', base };
+  if (!base.verif1) {
+    return { ok: false, motivo: 'biela',
+      texto: 'A biela comprimida junto ao pilar (contorno C) já não passa. ' +
+             'Armadura de punção não resolve — é preciso aumentar h, fck ou o pilar.' };
+  }
+  if (base.verif2) {
+    return { ok: false, motivo: 'dispensada',
+      texto: 'O contorno C′ passa só com o concreto: não há necessidade de armadura de punção.' };
+  }
+
+  const tentativas = [];
+
+  // ── Etapa 9 primeiro: quantas camadas para o contorno C″ passar ──
+  // τSd,C″ cai monotonicamente com ncam (u3 e Wp crescem), então a
+  // primeira que passar é a mínima.
+  let ncam = null;
+  for (let m = 1; m <= NCAM_MAX; m++) {
+    const R = tentar(nconecMin, m);
+    const ok = !!R.etapa9?.verif4;
+    tentativas.push({ etapa: 9, ncam: m, tauSd: R.etapa9?.tauSd_Cpp, tauRd: R.tauRd1, ok });
+    if (ok) { ncam = m; break; }
+  }
+  if (ncam === null) {
+    return { ok: false, motivo: 'ncam', tentativas,
+      texto: `Nem com ${NCAM_MAX} camadas o contorno C″ é atendido. ` +
+             'Reveja a espessura da laje, o fck ou a armadura de flexão.' };
+  }
+
+  // ── Etapa 8 depois: quantos conectores por camada em C′ ──
+  // Precisa atender resistência (τSd ≤ τRd3) e o espaçamento
+  // tangencial da camada externa (se ≤ 2d), que depende do ncam acima.
+  let nconec = null, resultado = null;
+  for (let n = nconecMin; n <= NCONEC_MAX; n += passoNconec) {
+    const R = tentar(n, ncam);
+    const ok = !!R.verif3 && !!R.studs?.se_ok;
+    tentativas.push({ etapa: 8, nconec: n, tauSd: R.tauSd_Cl, tauRd: R.tauRd3,
+                      se: R.studs?.se_real, ok });
+    if (ok) { nconec = n; resultado = R; break; }
+  }
+  if (nconec === null) {
+    return { ok: false, motivo: 'nconec', tentativas, ncam,
+      texto: `Nem com ${NCONEC_MAX} conectores por camada o contorno C′ é atendido. ` +
+             'Aumente a bitola do conector ou reduza sr.' };
+  }
+
+  return { ok: true, phi, nconec, ncam, tentativas, resultado };
 }
 
 window.calcularPuncao = calcularPuncao;
 window.interpolarK = interpolarK;
 window.layoutArmadura = layoutArmadura;
+window.dimensionarArmadura = dimensionarArmadura;

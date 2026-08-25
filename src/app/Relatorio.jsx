@@ -273,8 +273,27 @@ function Relatorio({ R, projectName }) {
           sym={<>F<sub>sd</sub>/(u<sub>2</sub>d) + k<sub>x</sub>M<sub>sd1x</sub>/(W<sub>px</sub>d) + k<sub>y</sub>M<sub>sd1y</sub>/(W<sub>py</sub>d)</>}
           sub={rf(R.tauSd_Cl_F) + ' + ' + rf(R.tauSd_Cl_Mx) + ' + ' + rf(R.tauSd_Cl_My)}
           res={rf(R.tauSd_Cl)} unit="MPa" />
-        <RelEq lhs={<>τ<sub>Rd1</sub></>} sym={<>0,13·(1 + √(20/d))·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup></>}
-          sub={'0,13 · ' + rf(R.fator_d, 4) + ' · (100 · ' + r5(R.rho) + ' · ' + ri(I.fck) + ')^(1/3)'}
+        {R.temAxial && (
+          <>
+            <RelTab linhas={[
+              ['σ<sub>cp,x</sub> = N<sub>Sd,x</sub>/A<sub>c</sub>', rf(R.sigma_cpx, 3), 'MPa'],
+              ['σ<sub>cp,y</sub> = N<sub>Sd,y</sub>/A<sub>c</sub>', rf(R.sigma_cpy, 3), 'MPa'],
+            ]} />
+            <RelEq lhs={<>σ<sub>cp</sub></>} sym={<>(σ<sub>cp,x</sub> + σ<sub>cp,y</sub>)/2 ≤ 3,5 MPa</>}
+              sub={'(' + rf(R.sigma_cpx, 3) + ' + ' + rf(R.sigma_cpy, 3) + ')/2'}
+              res={rf(R.sigma_cp, 3)} unit="MPa" />
+          </>
+        )}
+        <RelEq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/d) ; 2)</>}
+          sub={'mín(' + rf(R.fator_d_bruto, 4) + ' ; 2)'} res={rf(R.fator_d, 4)} />
+        {R.ke_limitado && (
+          <p className="rel-nota">
+            Coeficiente de escala calculado {rf(R.fator_d_bruto, 4)}, truncado no limite k<sub>e</sub> ≤ 2.
+          </p>
+        )}
+        <RelEq lhs={<>τ<sub>Rd1</sub></>} sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
+          sub={'0,13 · ' + rf(R.fator_d, 4) + ' · (100 · ' + r5(R.rho) + ' · ' + ri(I.fck) + ')^(1/3)'
+                + (R.temAxial ? ' + 0,10 · ' + rf(R.sigma_cp, 3) : '')}
           res={rf(R.tauRd1, 4)} unit="MPa" />
         <RelVerif ok={R.verif2}
           cond={<>τ<sub>Sd</sub> = {rf(R.tauSd_Cl)} {R.verif2 ? '≤' : '>'} τ<sub>Rd1</sub> = {rf(R.tauRd1)} MPa</>}
@@ -362,7 +381,31 @@ function Relatorio({ R, projectName }) {
       </RelSecao>
 
       {/* ── 10 ── */}
-      <RelSecao n="10" titulo="Resumo das verificações">
+      {R.colapso && !R.colapso.incompleto && (
+        <RelSecao n="10" titulo="Colapso progressivo" cite="19.5.4">
+          <p className="rel-nota">
+            Rompida a ligação por punção, a armadura de flexão inferior que atravessa o
+            contorno C precisa suspender a força sozinha: ΣA<sub>s</sub>·f<sub>yd</sub> ≥ F<sub>Sd</sub>,
+            somando as barras que cruzam cada face do pilar. A face com menos aço governa.
+          </p>
+          <RelEq lhs={<>A<sub>s,nec</sub></>} sym={<>F<sub>Sd</sub>/f<sub>yd</sub></>}
+            sub={rf(Math.abs(R.Fsd)) + ' / ' + rf(R.fyd / 10, 3)}
+            res={rf(R.colapso.As_nec)} unit="cm²" />
+          <RelTab linhas={[
+            ['barras horizontais (dir. x) — Ø' + ri(R.colapso.phi_h) + ' c/ ' + rf(R.colapso.s_h) + ' cm', rf(R.colapso.As_h), 'cm²/face'],
+            ['barras verticais (dir. y) — Ø' + ri(R.colapso.phi_v) + ' c/ ' + rf(R.colapso.s_v) + ' cm', rf(R.colapso.As_v), 'cm²/face'],
+            ['face crítica', rf(R.colapso.As_gov), 'cm²'],
+          ]} />
+          <RelVerif ok={R.colapso.verif5}
+            cond={<>ΣA<sub>s</sub>·f<sub>yd</sub> = {rf(R.colapso.Rd)} {R.colapso.verif5 ? '≥' : '<'} F<sub>Sd</sub> = {rf(Math.abs(R.Fsd))} kN</>}
+            texto={R.colapso.verif5
+              ? 'a armadura inferior garante a proteção contra colapso progressivo'
+              : 'armadura inferior insuficiente contra colapso progressivo'} />
+        </RelSecao>
+      )}
+
+      {/* ── 11 ── */}
+      <RelSecao n={R.colapso && !R.colapso.incompleto ? '11' : '10'} titulo="Resumo das verificações">
         <table className="rel-resumo">
           <thead>
             <tr>
@@ -392,6 +435,14 @@ function Relatorio({ R, projectName }) {
               <td>{R.etapa9 ? rf(R.tauRd1) + ' MPa' : '—'}</td>
               <td>{R.etapa9 ? (R.etapa9.verif4 ? 'Atende' : 'Não atende') : 'Não avaliado'}</td>
             </tr>
+            {R.colapso && !R.colapso.incompleto && (
+              <tr className={R.colapso.verif5 ? 'ok' : 'nao'}>
+                <td>C</td><td>Colapso progressivo</td>
+                <td>{rf(Math.abs(R.Fsd))} kN</td>
+                <td>{rf(R.colapso.Rd)} kN</td>
+                <td>{R.colapso.verif5 ? 'Atende' : 'Não atende'}</td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -425,17 +476,33 @@ function textoConclusao(R, temArm) {
   }
   const okCl = R.verif3;
   const okCpp = R.etapa9 && R.etapa9.verif4;
-  if (okCl && okCpp) {
+  // O colapso progressivo é uma verificação à parte: só entra na conclusão
+  // quando o projetista informou a armadura inferior.
+  const temCcp = R.colapso && !R.colapso.incompleto;
+  const okCcp = !temCcp || R.colapso.verif5;
+
+  const alerta = temCcp && !R.colapso.verif5
+    ? ' A armadura inferior contra colapso progressivo, porém, é insuficiente: a face crítica '
+      + 'oferece ' + rf(R.colapso.As_gov) + ' cm² e são necessários ' + rf(R.colapso.As_nec)
+      + ' cm² (item 19.5.4).'
+    : '';
+
+  if (okCl && okCpp && okCcp) {
     return 'A ligação atende à punção com a armadura adotada: ' + R.studs.nconec + ' conectores de Ø'
       + R.studs.phi + ' mm por camada, em ' + R.studs.ncam + ' camadas, com s₀ = ' + rf(R.s0)
       + ' cm e sr = ' + rf(R.sr) + ' cm. Todos os contornos verificados são atendidos.';
+  }
+  if (okCl && okCpp) {
+    return 'Os contornos de punção são atendidos com a armadura adotada: ' + R.studs.nconec
+      + ' conectores de Ø' + R.studs.phi + ' mm por camada, em ' + R.studs.ncam + ' camadas.'
+      + alerta;
   }
   const faltas = [];
   if (!okCl) faltas.push('o contorno C′ com armadura');
   if (!okCpp) faltas.push('o contorno C″');
   return 'A armadura adotada não é suficiente: ' + faltas.join(' e ') + ' não é atendido. Revise o '
     + 'diâmetro e a quantidade de conectores por camada, reduza o espaçamento radial sr, acrescente '
-    + 'camadas ou aumente a espessura da laje.';
+    + 'camadas ou aumente a espessura da laje.' + alerta;
 }
 
 window.Relatorio = Relatorio;

@@ -317,9 +317,35 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
               ['parcela de M<sub>sd1x</sub>', fmt(R.tauSd_Cl_Mx), 'MPa'],
               ['parcela de M<sub>sd1y</sub>', fmt(R.tauSd_Cl_My), 'MPa'],
             ]} />
+            {R.temAxial && (
+              <>
+                <KV rows={[
+                  ['σ<sub>cp,x</sub> = N<sub>Sd,x</sub>/A<sub>c</sub>', fmt(R.sigma_cpx, 3), 'MPa'],
+                  ['σ<sub>cp,y</sub> = N<sub>Sd,y</sub>/A<sub>c</sub>', fmt(R.sigma_cpy, 3), 'MPa'],
+                ]} />
+                <Eq lhs={<>σ<sub>cp</sub></>} sym={<>(σ<sub>cp,x</sub> + σ<sub>cp,y</sub>)/2 ≤ 3,5 MPa</>}
+                  sub={`(${fmt(R.sigma_cpx, 3)} + ${fmt(R.sigma_cpy, 3)})/2`}
+                  res={fmt(R.sigma_cp, 3)} unit="MPa" />
+                {R.sigma_cp_limitado && (
+                  <div className="muted" style={{fontSize: 12}}>
+                    Valor calculado {fmt(R.sigma_cp_bruto, 3)} MPa limitado a 3,5 MPa.
+                  </div>
+                )}
+              </>
+            )}
+            <Eq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/d) ; 2)</>}
+              sub={`mín(${fmt(R.fator_d_bruto, 4)} ; 2)`}
+              res={fmt(R.fator_d, 4)} />
+            {R.ke_limitado && (
+              <div className="muted" style={{fontSize: 12}}>
+                O coeficiente de escala calculado ({fmt(R.fator_d_bruto, 4)}) excede o limite da
+                NBR 6118:2023 e foi truncado em 2.
+              </div>
+            )}
             <Eq lhs={<>τ<sub>Rd1</sub></>}
-              sym={<>0,13·(1 + √(20/d))·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup></>}
-              sub={`0,13·${fmt(R.fator_d, 4)}·(100·${R.rho.toFixed(5)}·${I.fck})^(1/3)`}
+              sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
+              sub={`0,13·${fmt(R.fator_d, 4)}·(100·${R.rho.toFixed(5)}·${I.fck})^(1/3)`
+                    + (R.temAxial ? ` + 0,10·${fmt(R.sigma_cp, 3)}` : '')}
               res={fmt(R.tauRd1, 4)} unit="MPa" />
             <Verif ok={R.verif2}
               cond={<>τ<sub>Sd</sub> = {fmt(R.tauSd_Cl)} {R.verif2 ? '≤' : '>'} τ<sub>Rd1</sub> = {fmt(R.tauRd1)} MPa</>}
@@ -435,6 +461,38 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
             )}
           </ResultCard>
 
+          {/* ── Etapa 10 ── */}
+          {R.colapso && (
+            <ResultCard title="10 — Colapso progressivo" cite="item 19.5.4"
+              ok={R.colapso.incompleto ? null : R.colapso.verif5}>
+              <div className="muted" style={{fontSize: 12}}>
+                Se a ligação laje–pilar romper por punção, a armadura de flexão inferior que
+                atravessa o contorno C precisa suspender a força sozinha. A face do pilar com
+                menos aço governa, e essas barras devem estar ancoradas além do contorno.
+              </div>
+              {R.colapso.incompleto ? (
+                <div className="muted">Informe bitola e espaçamento nas duas direções na etapa 4.</div>
+              ) : (
+                <>
+                  <Eq lhs={<>A<sub>s,nec</sub></>} sym={<>F<sub>Sd</sub>/f<sub>yd</sub></>}
+                    sub={`${fmt(Math.abs(R.Fsd))}/${fmt(R.fyd/10, 3)}`}
+                    res={fmt(R.colapso.As_nec)} unit="cm²" />
+                  <KV rows={[
+                    [`barras horizontais (dir. x) — Ø${R.colapso.phi_h} c/ ${fmt(R.colapso.s_h)} cm, face de ${fmt(R.colapso.largH)} cm`,
+                      `${fmt(R.colapso.nh_exato, 2)} barras · ${fmt(R.colapso.As_h)}`, 'cm²'],
+                    [`barras verticais (dir. y) — Ø${R.colapso.phi_v} c/ ${fmt(R.colapso.s_v)} cm, face de ${fmt(R.colapso.largV)} cm`,
+                      `${fmt(R.colapso.nv_exato, 2)} barras · ${fmt(R.colapso.As_v)}`, 'cm²'],
+                    ['soma das quatro faces (informativo)', fmt(R.colapso.As_total), 'cm²'],
+                  ]} />
+                  <Verif ok={R.colapso.verif5}
+                    cond={<>ΣA<sub>s</sub>·f<sub>yd</sub> = {fmt(R.colapso.Rd)} {R.colapso.verif5 ? '≥' : '<'} F<sub>Sd</sub> = {fmt(Math.abs(R.Fsd))} kN</>}
+                    okMsg="Proteção contra colapso progressivo atendida!"
+                    errMsg={`Insuficiente — a face crítica (direção ${R.colapso.direcaoGov === 'h' ? 'x' : 'y'}) tem ${fmt(R.colapso.As_gov)} cm² e precisa de ${fmt(R.colapso.As_nec)} cm².`} />
+                </>
+              )}
+            </ResultCard>
+          )}
+
           {/* ── Resumo ── */}
           <ResultCard title="Resumo das verificações">
             <div className="resumo-list">
@@ -448,6 +506,11 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
               <ResumoItem n="verif4" ok={R.etapa9 ? R.etapa9.verif4 : null}
                 txt={!R.etapa9 ? 'Aguardando definição da armadura'
                   : R.etapa9.verif4 ? 'Perímetro C″ com armadura de punção, τRd1 Ok!' : 'ERRO! τRd1 não passa!!'} />
+              {R.colapso && (
+                <ResumoItem n="verif5" ok={R.colapso.incompleto ? null : R.colapso.verif5}
+                  txt={R.colapso.incompleto ? 'Armadura contra colapso progressivo incompleta'
+                    : R.colapso.verif5 ? 'Colapso progressivo, Ok!' : 'ERRO! Armadura inferior insuficiente!!'} />
+              )}
             </div>
           </ResultCard>
 

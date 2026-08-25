@@ -409,6 +409,27 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+/* Ø + espaçamento, duas direções — as bitolas ficam mais largas que os c/ */
+.grid-4 { display: grid; grid-template-columns: 1.3fr .9fr 1.3fr .9fr; gap: 12px; }
+
+/* Linha com caixa de seleção que abre um bloco opcional de campos */
+.check-linha {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--slate-700);
+  margin-bottom: 10px; cursor: pointer; user-select: none;
+}
+.check-linha input[type="checkbox"] {
+  width: 15px; height: 15px; margin: 0;
+  accent-color: var(--blue-900); cursor: pointer;
+}
+
+/* Bloco do dimensionamento automático da armadura de punção */
+.auto-arm {
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper-2); padding: 10px 12px;
+}
+.auto-arm-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.auto-arm-nota { font-size: 11.5px; color: var(--slate-600); flex: 1 1 200px; }
 
 .subhead {
   font-size: 11px; font-weight: 600;
@@ -1047,10 +1068,15 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
   .rel-un { font-weight: 400; color: #6b7280; font-size: 7.4pt; }
 
   /* ── fórmulas ── */
+  /* Sem fundo: o papel inteiro fica branco, e as linhas de fórmula
+     se separam por filetes em vez de por uma faixa colorida. */
   .rel-eq {
     display: flex; align-items: baseline; gap: 2mm;
-    padding: 1.2mm 2mm; margin-bottom: 1mm;
-    background: #f5f7fa; border-left: 1.4pt solid #b9c4d6;
+    padding: 1.1mm 2mm; margin-bottom: 1mm;
+    background: transparent;
+    border-left: 1.4pt solid #b9c4d6;
+    border-top: .4pt solid #dfe4ec;
+    border-bottom: .4pt solid #dfe4ec;
     break-inside: avoid;
   }
   .rel-eq-l {
@@ -1121,8 +1147,11 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
 
   .rel-conclusao {
     text-align: justify; margin-top: 1mm;
-    padding: 2mm 2.4mm; background: #f5f7fa;
-    border-left: 1.6pt solid #0f2a5c; font-size: 8.4pt;
+    padding: 2mm 2.4mm; background: transparent;
+    border-left: 1.6pt solid #0f2a5c;
+    border-top: .4pt solid #dfe4ec;
+    border-bottom: .4pt solid #dfe4ec;
+    font-size: 8.4pt;
   }
 
   /* ── rodapé ── */

@@ -27,6 +27,9 @@ const HELP = {
   sr: { title: 'Espaçamento radial sr adotado', body: 'Distância entre camadas sucessivas de armadura. Limite: sr ≤ 0,75·d. Entra diretamente no termo 1,5·(d/sr) de τRd3.', ref: 'NBR 6118 · 19.5.3.3' },
   se: { title: 'Espaçamento se adotado', body: 'Distância entre conectores ao longo de um mesmo contorno. Limite: se ≤ 2·d.', ref: 'NBR 6118 · 19.5.3.3' },
   u3: { title: 'Perímetro u₃ medido', body: 'Perímetro do contorno C″, a 2d além da última camada de armadura. O app calcula u₃ = u₁ + 2π·(2d + p) com cantos arredondados; se você mediu o contorno poligonal em CAD, informe o valor medido aqui.', ref: 'NBR 6118 · 19.5.3.4' },
+  Nsd: { title: 'Força axial de compressão', body: 'Força normal de compressão atuante no contorno C′ na direção considerada — de protensão ou de restrição axial. Gera σcp, que soma uma parcela favorável a τRd1. Deixe em branco se a laje não tem compressão axial.', ref: 'NBR 6118 · 19.5.3.2' },
+  Ac: { title: 'Área Ac', body: 'Área de concreto associada à força axial de compressão, em cm². Usada em σcp = Nsd/Ac.', ref: 'NBR 6118 · 19.5.3.2' },
+  ccp: { title: 'Colapso progressivo', body: 'A armadura de flexão INFERIOR que atravessa o contorno C precisa, sozinha, suspender a força de punção caso a ligação rompa: ΣAs·fyd ≥ FSd, somando as barras que cruzam cada face do pilar. Essas barras devem estar bem ancoradas além do contorno.', ref: 'NBR 6118 · 19.5.4' },
 };
 
 function HelpDot({ k }) {
@@ -197,6 +200,7 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
         <Field label="M<sub>xk</sub>" helpKey="Mxk" value={data.Mxk} onChange={v => set({ Mxk: v })} onFocus={() => setFocused('Mxk')} placeholder="8100" suffix="kN·cm" error={errs.Mxk} />
         <Field label="M<sub>yk</sub>" helpKey="Myk" value={data.Myk} onChange={v => set({ Myk: v })} onFocus={() => setFocused('Myk')} placeholder="5400" suffix="kN·cm" error={errs.Myk} />
       </div>
+      <BlocoAxial data={data} set={set} setFocused={setFocused} />
       <div className="helper">
         <HelperCargas Fsk={data.Fsk} Mxk={data.Mxk} Myk={data.Myk} />
         <div className="lbl">
@@ -205,6 +209,49 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
         </div>
       </div>
     </StepCard>
+  );
+}
+
+// Compressão axial (σcp) — parcela favorável de τRd1. Opcional: sem Nsd
+// informado a laje é tratada como sem compressão axial e nada muda.
+function BlocoAxial({ data, set, setFocused }) {
+  const ax = data.axial || {};
+  const ativo = !!ax.ativo;
+  const setAx = (k, v) => set({ axial: { ...ax, [k]: v === '' ? null : v } });
+
+  // prévia de σcp com o que já foi digitado
+  const Ac = Number.isFinite(ax.Ac) && ax.Ac > 0 ? ax.Ac : null;
+  const sx = Ac && Number.isFinite(ax.Nsdx) ? 10 * ax.Nsdx / Ac : null;
+  const sy = Ac && Number.isFinite(ax.Nsdy) ? 10 * ax.Nsdy / Ac : null;
+  const scp = sx !== null || sy !== null ? ((sx || 0) + (sy || 0)) / 2 : null;
+  const limitado = scp !== null && scp > 3.5;
+
+  return (
+    <div>
+      <label className="check-linha">
+        <input type="checkbox" checked={ativo}
+          onChange={e => set({ axial: e.target.checked ? { ...ax, ativo: true } : null })} />
+        <span>Compressão axial na laje (σ<sub>cp</sub>)</span>
+        <HelpDot k="Nsd" />
+      </label>
+      {ativo && (
+        <>
+          <div className="grid-3">
+            <Field label="N<sub>Sd,x</sub>" helpKey="Nsd" value={ax.Nsdx} onChange={v => setAx('Nsdx', v)} onFocus={() => setFocused('Nsdx')} placeholder="0" suffix="kN" />
+            <Field label="N<sub>Sd,y</sub>" helpKey="Nsd" value={ax.Nsdy} onChange={v => setAx('Nsdy', v)} onFocus={() => setFocused('Nsdy')} placeholder="0" suffix="kN" />
+            <Field label="A<sub>c</sub>" helpKey="Ac" value={ax.Ac} onChange={v => setAx('Ac', v)} onFocus={() => setFocused('Ac')} placeholder="área" suffix="cm²" />
+          </div>
+          <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
+            σ<sub>cp</sub> = (σ<sub>cp,x</sub> + σ<sub>cp,y</sub>)/2 ={' '}
+            <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>
+              {scp === null ? '—' : (limitado ? 3.5 : scp).toFixed(3) + ' MPa'}
+            </span>
+            {limitado && <> — limitado a 3,5 MPa (valor calculado: {scp.toFixed(3)}).</>}
+            {' '}Entra em τ<sub>Rd1</sub> como + 0,10·σ<sub>cp</sub>.
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -274,6 +321,7 @@ function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derive
           <Field label="Espaçamento s<sub>y</sub>" helpKey="s" value={data.s_y} onChange={v => set({ s_y: v })} onFocus={() => setFocused('s_y')} placeholder="15" suffix="cm" error={errs.s_y} />
         </div>
       </div>
+      <BlocoColapso data={data} set={set} setFocused={setFocused} />
       <div className="helper">
         <HelperArmaduras h={data.h} cobrimento={data.cobrimento} camadaExterna={extY ? 'y' : 'x'} phi_lx={data.phi_lx} phi_ly={data.phi_ly} dx={derived?.dx} dy={derived?.dy} />
         <div className="lbl">
@@ -287,6 +335,61 @@ function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derive
         </div>
       </div>
     </StepCard>
+  );
+}
+
+// Armadura inferior contra colapso progressivo (item 19.5.4). "Horizontal" e
+// "vertical" são as direções em planta: as barras horizontais correm em x e
+// cruzam as faces de largura C₂; as verticais correm em y e cruzam as de C₁.
+function BlocoColapso({ data, set, setFocused }) {
+  const cp = data.ccp || {};
+  const ativo = !!cp.ativo;
+  const setCp = (k, v) => set({ ccp: { ...cp, ativo: true, [k]: v === '' ? null : v } });
+
+  const circ = data.secao === 'circular';
+  const largH = circ ? data.diam : data.C2;   // face cruzada pelas barras em x
+  const largV = circ ? data.diam : data.C1;   // face cruzada pelas barras em y
+  const area = mm => (Number.isFinite(mm) && mm > 0 ? Math.PI * (mm/10) * (mm/10) / 4 : null);
+  const porFace = (larg, mm, s) =>
+    larg > 0 && Number.isFinite(s) && s > 0 && area(mm) ? (larg / s) * area(mm) : null;
+  const AsH = porFace(largH, cp.phi_h, cp.s_h);
+  const AsV = porFace(largV, cp.phi_v, cp.s_v);
+  const AsNec = Number.isFinite(data.Fsk) && data.fyk > 0
+    ? 10 * Math.abs(1.4 * data.Fsk) / (data.fyk / 1.15)
+    : null;
+  const gov = AsH !== null && AsV !== null ? Math.min(AsH, AsV) : null;
+  const passa = gov !== null && AsNec !== null ? gov >= AsNec : null;
+
+  return (
+    <div>
+      <label className="check-linha">
+        <input type="checkbox" checked={ativo}
+          onChange={e => set({ ccp: e.target.checked ? { ...cp, ativo: true } : null })} />
+        <span>Colapso progressivo</span>
+        <HelpDot k="ccp" />
+      </label>
+      {ativo && (
+        <>
+          <div className="grid-4">
+            <Field label="A. Hor. Ø" helpKey="phil" value={cp.phi_h} onChange={v => setCp('phi_h', v)} onFocus={() => setFocused('ccp')} options={BITOLA_FLEX} />
+            <Field label="c/" value={cp.s_h} onChange={v => setCp('s_h', v)} onFocus={() => setFocused('ccp')} placeholder="10" suffix="cm" />
+            <Field label="A. Ver. Ø" helpKey="phil" value={cp.phi_v} onChange={v => setCp('phi_v', v)} onFocus={() => setFocused('ccp')} options={BITOLA_FLEX} />
+            <Field label="c/" value={cp.s_v} onChange={v => setCp('s_v', v)} onFocus={() => setFocused('ccp')} placeholder="10" suffix="cm" />
+          </div>
+          <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
+            Barras inferiores que cruzam cada face do pilar. Necessário{' '}
+            <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>
+              A<sub>s</sub> ≥ {AsNec === null ? '—' : AsNec.toFixed(2) + ' cm²'}
+            </span>{' '}
+            (= F<sub>Sd</sub>/f<sub>yd</sub>) · disponível por face{' '}
+            <span className="mono" style={{color: passa === false ? 'var(--err)' : 'var(--blue-900)', fontWeight:600}}>
+              {gov === null ? '—' : gov.toFixed(2) + ' cm²'}
+            </span>
+            {passa === false && ' — não atende'}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -390,6 +493,8 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
         />
       </div>
 
+      <AutoArmadura data={data} set={set} />
+
       <div>
         <div className="subhead">Espaçamentos — limite normativo e valor adotado</div>
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 8, fontSize: 11.5, color: 'var(--slate-600)', marginBottom: 8}}>
@@ -430,6 +535,57 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
         </div>
       </div>
     </StepCard>
+  );
+}
+
+// Botão que resolve a armadura em vez de o projetista arbitrá-la.
+// A etapa 8 (contorno C′) define n_conec e a etapa 9 (contorno C″) define
+// n_cam; a bitola continua sendo escolha de quem projeta.
+function AutoArmadura({ data, set }) {
+  const [res, setRes] = useStateS(null);
+  const podeRodar = data.studs?.phi > 0;
+
+  const rodar = () => {
+    const r = window.dimensionarArmadura(data);
+    setRes(r);
+    if (r.ok) set({ studs: { ...(data.studs || {}), nconec: r.nconec, ncam: r.ncam } });
+  };
+
+  // Uma roseta muito grande passa nas contas mas não se constrói: avisa.
+  const exagerado = res?.ok && (res.ncam > 6 || res.nconec > 20);
+
+  return (
+    <div className="auto-arm">
+      <div className="auto-arm-topo">
+        <button className="btn btn-sm btn-primary" disabled={!podeRodar} onClick={rodar}>
+          Selecionar automaticamente
+        </button>
+        <span className="auto-arm-nota">
+          {podeRodar
+            ? <>Busca o menor n<sub>conec</sub> que atende C′ e o menor n<sub>cam</sub> que atende C″.</>
+            : <>Escolha primeiro a bitola do conector.</>}
+        </span>
+      </div>
+      {res && !res.ok && (
+        <div className="callout" style={{marginTop: 8}}>
+          {res.texto || 'Não foi possível dimensionar automaticamente.'}
+        </div>
+      )}
+      {res?.ok && (
+        <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 6}}>
+          Adotado: <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>
+            Ø{res.phi} · n<sub>conec</sub> = {res.nconec} · n<sub>cam</sub> = {res.ncam}
+          </span>{' '}
+          após {res.tentativas.length} tentativas.
+          {exagerado && (
+            <div className="field-error" style={{marginTop: 4}}>
+              ⚠ Arranjo pouco construtivo ({res.nconec}×{res.ncam} = {res.nconec * res.ncam} conectores).
+              Aumente a bitola do conector, reduza s<sub>r</sub>, ou reveja a espessura da laje.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
