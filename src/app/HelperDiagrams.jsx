@@ -1,0 +1,268 @@
+/* global React */
+const { useMemo: useMemoH } = React;
+
+// ============================================================
+//  HelperDiagrams — 2D SVG explainers shown next to inputs
+// ============================================================
+
+// 1) Plan view of column with C1 / C2 and eccentricity arrow
+function HelperPilar({ secao, C1, C2, diam }) {
+  const W = 200, H = 130;
+  if (secao === 'circular') {
+    const r = 35;
+    return (
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+        <defs>
+          <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#1d4499" />
+          </marker>
+        </defs>
+        <rect x="0" y="0" width={W} height={H} fill="none" />
+        <circle cx={W/2} cy={H/2} r={r} fill="#c4c8cf" stroke="#3b465a" strokeWidth="1.2" />
+        <line x1={W/2-r} y1={H/2+r+10} x2={W/2+r} y2={H/2+r+10} stroke="#1d4499" strokeWidth="1" markerEnd="url(#ar1)" markerStart="url(#ar1)" />
+        <text x={W/2} y={H/2+r+24} textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="#0f172a">Ø = {diam || '—'} cm</text>
+        <text x={W/2} y="14" textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="Inter">Vista em planta · pilar circular</text>
+      </svg>
+    );
+  }
+  // rectangular
+  const cw = Math.max(50, Math.min(120, (C1 || 40) * 1.5));
+  const ch = Math.max(28, Math.min(90, (C2 || 25) * 1.5));
+  const cx = W/2, cy = H/2;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#1d4499" />
+        </marker>
+        <marker id="ar2b" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M10,0 L0,5 L10,10 z" fill="#1d4499" />
+        </marker>
+      </defs>
+      {/* column */}
+      <rect x={cx-cw/2} y={cy-ch/2} width={cw} height={ch} fill="#c4c8cf" stroke="#3b465a" strokeWidth="1.2" />
+      {/* eccentricity arrow (force offset center) */}
+      <circle cx={cx} cy={cy} r="2.5" fill="#1d4499" />
+      <line x1={cx} y1={cy} x2={cx+18} y2={cy-12} stroke="#9333ea" strokeWidth="1.5" markerEnd="url(#ar2)" />
+      <text x={cx+22} y={cy-14} fontSize="9" fill="#9333ea" fontFamily="Inter" fontWeight="600">e</text>
+      {/* C1 dimension below */}
+      <line x1={cx-cw/2} y1={cy+ch/2+10} x2={cx+cw/2} y2={cy+ch/2+10} stroke="#1d4499" strokeWidth="0.8" markerEnd="url(#ar2)" markerStart="url(#ar2b)" />
+      <text x={cx} y={cy+ch/2+22} textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="9.5" fill="#0f172a">C₁ = {C1 || '—'} cm</text>
+      {/* C2 dimension right */}
+      <line x1={cx+cw/2+10} y1={cy-ch/2} x2={cx+cw/2+10} y2={cy+ch/2} stroke="#1d4499" strokeWidth="0.8" markerEnd="url(#ar2)" markerStart="url(#ar2b)" />
+      <text x={cx+cw/2+13} y={cy+3} fontFamily="JetBrains Mono, monospace" fontSize="9.5" fill="#0f172a">C₂ = {C2 || '—'} cm</text>
+      <text x={cx} y="12" textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="Inter">Vista em planta · pilar retangular</text>
+    </svg>
+  );
+}
+
+// 2) Axonometric column with force + moment vectors
+function HelperCargas({ Fsk, Mxk, Myk }) {
+  // Convenção vetorial: a força é um vetor de ponta simples e os momentos são
+  // vetores de ponta DUPLA (regra da mão direita). Os três partem do topo do
+  // pilar, separados angularmente para não se sobreporem.
+  const W = 236, H = 156;
+  const oy = 74;                   // cota da aresta frontal do topo do pilar
+  const baseP = 112;               // base do pilar (plano da laje)
+  const vx = 89, vy = 75;          // origem dos vetores: centro da face de topo
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <defs>
+        {/* ponta simples — vetor força */}
+        <marker id="ahr" viewBox="0 0 9 8" refX="9" refY="4"
+          markerWidth="9" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,0 L9,4 L0,8 z" fill="#b42318" />
+        </marker>
+        {/* ponta dupla — vetor de momento (regra da mão direita).
+            As duas farpas ficam separadas por um vão para lerem como duas. */}
+        <marker id="ahm2" viewBox="0 0 15 8" refX="15" refY="4"
+          markerWidth="15" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,0 L6,4 L0,8 z" fill="#9333ea" />
+          <path d="M9,0 L15,4 L9,8 z" fill="#9333ea" />
+        </marker>
+        <marker id="ahy2" viewBox="0 0 15 8" refX="15" refY="4"
+          markerWidth="15" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,0 L6,4 L0,8 z" fill="#16a394" />
+          <path d="M9,0 L15,4 L9,8 z" fill="#16a394" />
+        </marker>
+      </defs>
+
+      {/* laje (paralelogramo em perspectiva) */}
+      <polygon points={`14,${baseP} 118,${baseP} 144,${baseP + 24} 40,${baseP + 24}`}
+        fill="#e6ecf3" stroke="#94a3b8" strokeWidth="0.8" />
+      {/* pilar em axonometria: face direita, topo e face frontal */}
+      <polygon points={`96,${oy + 6} 106,${oy - 4} 106,${baseP - 10} 96,${baseP}`}
+        fill="#b8bdc6" stroke="#3b465a" strokeWidth="0.8" />
+      <polygon points={`72,${oy + 6} 82,${oy - 4} 106,${oy - 4} 96,${oy + 6}`}
+        fill="#d6dae1" stroke="#3b465a" strokeWidth="0.8" />
+      <rect x="72" y={oy + 6} width="24" height={baseP - oy - 6}
+        fill="#cdd2da" stroke="#3b465a" strokeWidth="0.8" />
+
+      {/* Fsk — vetor força, ponta simples. Convenção: valor positivo aponta
+          PARA BAIXO (carga de gravidade descendo sobre o topo do pilar);
+          um Fsk negativo (uplift) inverte o sentido. */}
+      {Number.isFinite(Fsk) && Fsk !== 0 && (
+        <g>
+          {Fsk > 0 ? (
+            <line x1={vx} y1="16" x2={vx} y2={vy - 2} stroke="#b42318" strokeWidth="1.8" markerEnd="url(#ahr)" />
+          ) : (
+            <line x1={vx} y1={vy - 2} x2={vx} y2="16" stroke="#b42318" strokeWidth="1.8" markerEnd="url(#ahr)" />
+          )}
+          <text x={vx - 6} y="30" textAnchor="end" fontSize="10" fill="#b42318" fontWeight="700" fontFamily="Inter">Fsk</text>
+        </g>
+      )}
+      {/* Myk — vetor momento, ponta dupla, na diagonal (eixo y) */}
+      {Myk > 0 && (
+        <g>
+          <line x1={vx} y1={vy} x2="146" y2="26" stroke="#16a394" strokeWidth="1.8" markerEnd="url(#ahy2)" />
+          <text x="152" y="22" fontSize="10" fill="#16a394" fontWeight="700" fontFamily="Inter">Myk</text>
+        </g>
+      )}
+      {/* Mxk — vetor momento, ponta dupla, na horizontal (eixo x) */}
+      {Mxk > 0 && (
+        <g>
+          <line x1={vx} y1={vy} x2="166" y2={oy + 14} stroke="#9333ea" strokeWidth="1.8" markerEnd="url(#ahm2)" />
+          <text x="150" y={oy + 30} fontSize="10" fill="#9333ea" fontWeight="700" fontFamily="Inter">Mxk</text>
+        </g>
+      )}
+      <text x="8" y={H-5} fontSize="10" fill="#64748b" fontFamily="Inter">Esforços no topo do pilar</text>
+    </svg>
+  );
+}
+
+// 3) Section cut with h labeled + fck chip
+function HelperLaje({ h, fck }) {
+  const W = 220, H = 130;
+  const slabH = Math.max(18, Math.min(80, (h || 17) * 2.2));
+  const yTop = 30, yBot = yTop + slabH;
+  const fckClass = fck ? `C${Math.round(fck)}` : 'C—';
+  // map fck to a "concrete tone"
+  const tone = fck ? `hsl(220, ${Math.max(5, 15 - (fck-20)/3)}%, ${Math.max(60, 86 - (fck-20)*0.6)}%)` : '#dcdfe4';
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <rect x="20" y={yTop} width="180" height={slabH} fill={tone} stroke="#3b465a" strokeWidth="1" />
+      {/* hatching for concrete */}
+      <defs>
+        <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(15,42,92,0.18)" strokeWidth="0.7"/>
+        </pattern>
+      </defs>
+      <rect x="20" y={yTop} width="180" height={slabH} fill="url(#hatch)" />
+      {/* h dimension */}
+      <line x1="208" y1={yTop} x2="208" y2={yBot} stroke="#1d4499" strokeWidth="0.8" />
+      <line x1="205" y1={yTop} x2="211" y2={yTop} stroke="#1d4499" strokeWidth="0.8" />
+      <line x1="205" y1={yBot} x2="211" y2={yBot} stroke="#1d4499" strokeWidth="0.8" />
+      <text x="212" y={(yTop+yBot)/2 + 3} fontFamily="JetBrains Mono, monospace" fontSize="10" fill="#0f172a">h = {h || '—'} cm</text>
+      {/* fck chip */}
+      <rect x="28" y={yBot - 22} width="44" height="18" rx="3" fill="white" stroke="#1d4499" strokeWidth="0.9" />
+      <text x="50" y={yBot - 9} textAnchor="middle" fontSize="10" fontWeight="700" fill="#1d4499" fontFamily="Inter">{fckClass}</text>
+      <text x="28" y={yTop - 8} fontSize="10" fill="#64748b" fontFamily="Inter">Corte transversal da laje</text>
+    </svg>
+  );
+}
+
+// 4) Section showing rebar layer order with dx / dy
+function HelperArmaduras({ h, cobrimento, camadaExterna, phi_lx, phi_ly, dx, dy }) {
+  const W = 260, H = 150;
+  const yTop = 14, yBot = 122;
+  const slabH = yBot - yTop;
+  const hcm = h || 20;
+  const pxPerCm = slabH / hcm;
+  const c = cobrimento || 2.5;
+  const lx = (phi_lx || 12.5) / 10;
+  const ly = (phi_ly || 12.5) / 10;
+  const extY = camadaExterna !== 'x';
+
+  // Camada externa encosta no cobrimento; a interna desce uma bitola inteira.
+  const phiExt = extY ? ly : lx;
+  const phiInt = extY ? lx : ly;
+  const yCob = yTop + c * pxPerCm;
+  const yBarExt = yCob + phiExt * pxPerCm / 2;
+  const yBarInt = yCob + (phiExt + phiInt / 2) * pxPerCm;
+  // A malha desenhada como linha contínua é a paralela ao corte (direção x)
+  const yBarX = extY ? yBarInt : yBarExt;
+  const yBarY = extY ? yBarExt : yBarInt;
+
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      {/* slab */}
+      <rect x="30" y={yTop} width="200" height={slabH} fill="#eaecef" stroke="#3b465a" strokeWidth="1" />
+      {/* concrete hatch */}
+      <defs>
+        <pattern id="h2" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(15,42,92,0.10)" strokeWidth="0.5"/>
+        </pattern>
+      </defs>
+      <rect x="30" y={yTop} width="200" height={slabH} fill="url(#h2)" />
+
+      {/* cobrimento line */}
+      <line x1="30" y1={yCob} x2="230" y2={yCob} stroke="#94a3b8" strokeDasharray="2 2" strokeWidth="0.6" />
+      <text x="34" y={yCob - 2} fontSize="9" fill="#64748b" fontFamily="JetBrains Mono, monospace">c = {c} cm</text>
+
+      {/* Barra x — corte longitudinal (linha contínua) */}
+      <line x1="32" y1={yBarX} x2="228" y2={yBarX} stroke="#99a4b3" strokeWidth={Math.max(1.5, lx * pxPerCm)} strokeLinecap="round" />
+      <text x="34" y={yBarX - Math.max(3, lx*pxPerCm/2) - 2} fontSize="7.5" fill="#64748b" fontFamily="JetBrains Mono, monospace">Øℓx</text>
+
+      {/* Barra y — vista de topo das seções (círculos) */}
+      {[60, 100, 140, 180].map((x, i) => (
+        <circle key={`by${i}`} cx={x} cy={yBarY} r={Math.max(1.8, ly * pxPerCm / 2)} fill="#7e8a9c" stroke="#3b465a" strokeWidth="0.4" />
+      ))}
+      <text x="196" y={yBarY + 2.5} fontSize="7.5" fill="#64748b" fontFamily="JetBrains Mono, monospace">Øℓy</text>
+
+      {/* cotas dx / dy — medidas do topo até o centro de cada malha */}
+      <line x1="242" y1={yTop} x2="242" y2={yBarY} stroke="#1d4499" strokeWidth="0.7" />
+      <line x1="239" y1={yTop} x2="245" y2={yTop} stroke="#1d4499" strokeWidth="0.7" />
+      <line x1="239" y1={yBarY} x2="245" y2={yBarY} stroke="#1d4499" strokeWidth="0.7" />
+      <text x="246" y={yBarY} fontSize="7.5" fill="#1d4499" fontFamily="JetBrains Mono, monospace">dy={dy ? dy.toFixed(2) : '—'}</text>
+      <line x1="233" y1={yTop} x2="233" y2={yBarX} stroke="#1d4499" strokeWidth="0.7" strokeDasharray="2 1.5" />
+      <line x1="230" y1={yBarX} x2="236" y2={yBarX} stroke="#1d4499" strokeWidth="0.7" />
+      <text x="246" y={yBarX + 8} fontSize="7.5" fill="#1d4499" fontFamily="JetBrains Mono, monospace">dx={dx ? dx.toFixed(2) : '—'}</text>
+
+      <text x="34" y={yBot + 12} fontSize="10" fill="#64748b" fontFamily="Inter">
+        Camadas: externa = direção {extY ? 'y' : 'x'}
+      </text>
+    </svg>
+  );
+}
+
+// 5) Top view of stud rosette
+function HelperStuds({ secao, C1, C2, diam, d, nconec, ncam }) {
+  const W = 220, H = 180;
+  const cx = W/2, cy = H/2;
+  const scale = 1.2;
+  const _C1 = (secao === 'circular' ? (diam || 50) : (C1 || 40)) * scale * 0.7;
+  const _C2 = (secao === 'circular' ? (diam || 50) : (C2 || 25)) * scale * 0.7;
+  const dPx = (d || 15) * scale * 0.7;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      {/* column */}
+      {secao === 'circular' ? (
+        <circle cx={cx} cy={cy} r={_C1/2} fill="#c4c8cf" stroke="#3b465a" strokeWidth="1" />
+      ) : (
+        <rect x={cx - _C1/2} y={cy - _C2/2} width={_C1} height={_C2} fill="#c4c8cf" stroke="#3b465a" strokeWidth="1" />
+      )}
+      {/* studs — radial */}
+      {Array.from({length: Math.max(4, nconec || 8)}).map((_, arm) => {
+        const ang = (arm / Math.max(4, nconec || 8)) * Math.PI * 2;
+        return Array.from({length: ncam || 2}).map((_, layer) => {
+          const r0 = (secao === 'circular' ? _C1/2 : Math.max(_C1, _C2)/2);
+          const rL = r0 + 0.5 * dPx + layer * 0.75 * dPx;
+          const x = cx + Math.cos(ang) * rL;
+          const y = cy + Math.sin(ang) * rL;
+          if (secao !== 'circular' && Math.abs(x-cx) < _C1/2 + 1 && Math.abs(y-cy) < _C2/2 + 1) return null;
+          return <circle key={`${arm}-${layer}`} cx={x} cy={y} r="3" fill="#99a4b3" stroke="#3b465a" strokeWidth="0.5" />;
+        });
+      })}
+      <text x="8" y="14" fontSize="10" fill="#64748b" fontFamily="Inter">Roseta de studs · vista em planta</text>
+      <text x={W-8} y={H-8} textAnchor="end" fontSize="9.5" fontFamily="JetBrains Mono, monospace" fill="#0f172a">
+        {(nconec || '—')} × {(ncam || '—')} camadas
+      </text>
+    </svg>
+  );
+}
+
+window.HelperPilar = HelperPilar;
+window.HelperCargas = HelperCargas;
+window.HelperLaje = HelperLaje;
+window.HelperArmaduras = HelperArmaduras;
+window.HelperStuds = HelperStuds;

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+
+# gerado por scripts/build.mjs
+src/app/build/
+
+# saídas dos testes de fumaça
+smoke*.png
+teste-memorial.pdf
