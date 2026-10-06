@@ -120,7 +120,9 @@ const BITOLA_STUD = BITOLA_ESTRIBO.concat([{ v: 16, l: '16 mm' }, { v: 20, l: '2
 
 // ── Step 1: Pilar ──────────────────────────────────────────
 function StepPilar({ data, set, active, onActivate, focused, setFocused, errs }) {
-  const summary = data.secao === 'circular'
+  const summary = !data.secao
+    ? [{ lbl: 'Seção', val: '—' }, { lbl: 'Posição', val: 'Interno' }]
+    : data.secao === 'circular'
     ? [{ lbl: 'Seção', val: 'Circular' }, { lbl: 'Posição', val: 'Interno' }, { lbl: 'Ø', val: `${data.diam || '—'} cm` }]
     : [{ lbl: 'Seção', val: 'Retangular' }, { lbl: 'Posição', val: 'Interno' }, { lbl: 'C₁', val: `${data.C1 || '—'} cm` }, { lbl: 'C₂', val: `${data.C2 || '—'} cm` }];
   return (
@@ -141,13 +143,14 @@ function StepPilar({ data, set, active, onActivate, focused, setFocused, errs })
         </div>
       </div>
 
-      {data.secao === 'retangular' ? (
+      {data.secao === 'retangular' && (
         <div className="grid-2">
-          <Field label="C<sub>1</sub>" helpKey="C1" value={data.C1} onChange={v => set({ C1: v })} onFocus={() => setFocused('C1')} placeholder="40" suffix="cm" error={errs.C1} />
-          <Field label="C<sub>2</sub>" helpKey="C2" value={data.C2} onChange={v => set({ C2: v })} onFocus={() => setFocused('C2')} placeholder="25" suffix="cm" error={errs.C2} />
+          <Field label="C<sub>1</sub>" helpKey="C1" value={data.C1} onChange={v => set({ C1: v })} onFocus={() => setFocused('C1')} suffix="cm" error={errs.C1} />
+          <Field label="C<sub>2</sub>" helpKey="C2" value={data.C2} onChange={v => set({ C2: v })} onFocus={() => setFocused('C2')} suffix="cm" error={errs.C2} />
         </div>
-      ) : (
-        <Field label="Diâmetro Ø" helpKey="diam" value={data.diam} onChange={v => set({ diam: v })} onFocus={() => setFocused('diam')} placeholder="50" suffix="cm" error={errs.diam} />
+      )}
+      {data.secao === 'circular' && (
+        <Field label="Diâmetro Ø" helpKey="diam" value={data.diam} onChange={v => set({ diam: v })} onFocus={() => setFocused('diam')} suffix="cm" error={errs.diam} />
       )}
 
       <div>
@@ -179,7 +182,9 @@ function StepPilar({ data, set, active, onActivate, focused, setFocused, errs })
           <b>Pilar interno</b> · com momentos nas duas direções (Mx, My) atuando simultaneamente.<br/>
           {data.secao === 'circular'
             ? <>Pilar circular: u = π·Ø, K = 0,6 e W<sub>p</sub> = (Ø + 4d)², conforme item 19.5.2.3.</>
-            : <>A excentricidade da força gera tensões adicionais no perímetro crítico.</>}
+            : data.secao === 'retangular'
+            ? <>A excentricidade da força gera tensões adicionais no perímetro crítico.</>
+            : <>Escolha o tipo de seção do pilar.</>}
         </div>
       </div>
     </StepCard>
@@ -196,9 +201,9 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
   return (
     <StepCard n={2} title="Carregamentos característicos" active={active} done={isStepDone(2, data)} summary={summary} onClick={onActivate}>
       <div className="grid-3">
-        <Field label="F<sub>sk</sub>" helpKey="Fsk" value={data.Fsk} onChange={v => set({ Fsk: v })} onFocus={() => setFocused('Fsk')} placeholder="185" suffix="kN" error={errs.Fsk} />
-        <Field label="M<sub>xk</sub>" helpKey="Mxk" value={data.Mxk} onChange={v => set({ Mxk: v })} onFocus={() => setFocused('Mxk')} placeholder="8100" suffix="kN·cm" error={errs.Mxk} />
-        <Field label="M<sub>yk</sub>" helpKey="Myk" value={data.Myk} onChange={v => set({ Myk: v })} onFocus={() => setFocused('Myk')} placeholder="5400" suffix="kN·cm" error={errs.Myk} />
+        <Field label="F<sub>sk</sub>" helpKey="Fsk" value={data.Fsk} onChange={v => set({ Fsk: v })} onFocus={() => setFocused('Fsk')} suffix="kN" error={errs.Fsk} />
+        <Field label="M<sub>xk</sub>" helpKey="Mxk" value={data.Mxk} onChange={v => set({ Mxk: v })} onFocus={() => setFocused('Mxk')} suffix="kN·cm" error={errs.Mxk} />
+        <Field label="M<sub>yk</sub>" helpKey="Myk" value={data.Myk} onChange={v => set({ Myk: v })} onFocus={() => setFocused('Myk')} suffix="kN·cm" error={errs.Myk} />
       </div>
       <BlocoAxial data={data} set={set} setFocused={setFocused} />
       <div className="helper">
@@ -237,8 +242,8 @@ function BlocoAxial({ data, set, setFocused }) {
       {ativo && (
         <>
           <div className="grid-3">
-            <Field label="N<sub>Sd,x</sub>" helpKey="Nsd" value={ax.Nsdx} onChange={v => setAx('Nsdx', v)} onFocus={() => setFocused('Nsdx')} placeholder="0" suffix="kN" />
-            <Field label="N<sub>Sd,y</sub>" helpKey="Nsd" value={ax.Nsdy} onChange={v => setAx('Nsdy', v)} onFocus={() => setFocused('Nsdy')} placeholder="0" suffix="kN" />
+            <Field label="N<sub>Sd,x</sub>" helpKey="Nsd" value={ax.Nsdx} onChange={v => setAx('Nsdx', v)} onFocus={() => setFocused('Nsdx')} suffix="kN" />
+            <Field label="N<sub>Sd,y</sub>" helpKey="Nsd" value={ax.Nsdy} onChange={v => setAx('Nsdy', v)} onFocus={() => setFocused('Nsdy')} suffix="kN" />
             <Field label="A<sub>c</sub>" helpKey="Ac" value={ax.Ac} onChange={v => setAx('Ac', v)} onFocus={() => setFocused('Ac')} placeholder="área" suffix="cm²" />
           </div>
           <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
@@ -265,9 +270,9 @@ function StepLaje({ data, set, active, onActivate, setFocused, errs }) {
   return (
     <StepCard n={3} title="Laje e material" active={active} done={isStepDone(3, data)} summary={summary} onClick={onActivate}>
       <div className="grid-3">
-        <Field label="h" helpKey="h" value={data.h} onChange={v => set({ h: v })} onFocus={() => setFocused('h')} placeholder="17" suffix="cm" error={errs.h} />
-        <Field label="f<sub>ck</sub>" helpKey="fck" value={data.fck} onChange={v => set({ fck: v })} onFocus={() => setFocused('fck')} placeholder="40" suffix="MPa" error={errs.fck} />
-        <Field label="f<sub>yk</sub>" helpKey="fyk" value={data.fyk} onChange={v => set({ fyk: v })} onFocus={() => setFocused('fyk')} placeholder="500" suffix="MPa" error={errs.fyk} />
+        <Field label="h" helpKey="h" value={data.h} onChange={v => set({ h: v })} onFocus={() => setFocused('h')} suffix="cm" error={errs.h} />
+        <Field label="f<sub>ck</sub>" helpKey="fck" value={data.fck} onChange={v => set({ fck: v })} onFocus={() => setFocused('fck')} suffix="MPa" error={errs.fck} />
+        <Field label="f<sub>yk</sub>" helpKey="fyk" value={data.fyk} onChange={v => set({ fyk: v })} onFocus={() => setFocused('fyk')} suffix="MPa" error={errs.fyk} />
       </div>
       <div className="helper">
         <HelperLaje h={data.h} fck={data.fck} />
@@ -282,10 +287,11 @@ function StepLaje({ data, set, active, onActivate, setFocused, errs }) {
 
 // ── Step 4: Armaduras ─────────────────────────────────────
 function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derived }) {
-  const extY = data.camadaExterna !== 'x';
+  const camada = data.camadaExterna === 'x' || data.camadaExterna === 'y' ? data.camadaExterna : null;
+  const extY = camada !== 'x';
   const summary = [
     { lbl: 'c', val: `${data.cobrimento || '—'} cm` },
-    { lbl: 'Externa', val: extY ? 'dir. y' : 'dir. x' },
+    { lbl: 'Externa', val: camada ? `dir. ${camada}` : '—' },
     { lbl: 'Øℓx', val: `Ø${data.phi_lx || '—'} @ ${data.s_x || '—'}` },
     { lbl: 'Øℓy', val: `Ø${data.phi_ly || '—'} @ ${data.s_y || '—'}` },
   ];
@@ -294,13 +300,14 @@ function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derive
       <div>
         <div className="subhead">Cobrimento e ordem das camadas</div>
         <div className="grid-2">
-          <Field label="Cobrimento c" helpKey="cobrimento" value={data.cobrimento} onChange={v => set({ cobrimento: v })} onFocus={() => setFocused('cobrimento')} placeholder="2,5" step="0.1" suffix="cm" error={errs.cobrimento} />
+          <Field label="Cobrimento c" helpKey="cobrimento" value={data.cobrimento} onChange={v => set({ cobrimento: v })} onFocus={() => setFocused('cobrimento')} step="0.1" suffix="cm" error={errs.cobrimento} />
           <div className="campo-grupo">
             <label className="field-label">
               <span>Camada externa (mais próxima do topo)</span>
               <HelpDot k="camadaExterna" />
             </label>
-            <select className="select" value={extY ? 'y' : 'x'} onChange={e => set({ camadaExterna: e.target.value })} onFocus={() => setFocused('camadaExterna')}>
+            <select className="select" value={camada || ''} onChange={e => set({ camadaExterna: e.target.value || null })} onFocus={() => setFocused('camadaExterna')}>
+              <option value="">Selecione…</option>
               <option value="y">Direção y — dy é a maior</option>
               <option value="x">Direção x — dx é a maior</option>
             </select>
@@ -311,14 +318,14 @@ function StepArmaduras({ data, set, active, onActivate, setFocused, errs, derive
         <div className="subhead">Armadura de flexão · direção x</div>
         <div className="grid-2">
           <Field label="Bitola Ø<sub>ℓx</sub>" helpKey="phil" value={data.phi_lx} onChange={v => set({ phi_lx: v })} onFocus={() => setFocused('phi_lx')} options={BITOLA_FLEX} error={errs.phi_lx} />
-          <Field label="Espaçamento s<sub>x</sub>" helpKey="s" value={data.s_x} onChange={v => set({ s_x: v })} onFocus={() => setFocused('s_x')} placeholder="15" suffix="cm" error={errs.s_x} />
+          <Field label="Espaçamento s<sub>x</sub>" helpKey="s" value={data.s_x} onChange={v => set({ s_x: v })} onFocus={() => setFocused('s_x')} suffix="cm" error={errs.s_x} />
         </div>
       </div>
       <div>
         <div className="subhead">Armadura de flexão · direção y</div>
         <div className="grid-2">
           <Field label="Bitola Ø<sub>ℓy</sub>" helpKey="phil" value={data.phi_ly} onChange={v => set({ phi_ly: v })} onFocus={() => setFocused('phi_ly')} options={BITOLA_FLEX} error={errs.phi_ly} />
-          <Field label="Espaçamento s<sub>y</sub>" helpKey="s" value={data.s_y} onChange={v => set({ s_y: v })} onFocus={() => setFocused('s_y')} placeholder="15" suffix="cm" error={errs.s_y} />
+          <Field label="Espaçamento s<sub>y</sub>" helpKey="s" value={data.s_y} onChange={v => set({ s_y: v })} onFocus={() => setFocused('s_y')} suffix="cm" error={errs.s_y} />
         </div>
       </div>
       <BlocoColapso data={data} set={set} setFocused={setFocused} />
@@ -372,9 +379,9 @@ function BlocoColapso({ data, set, setFocused }) {
         <>
           <div className="grid-4">
             <Field label="A. Hor. Ø" helpKey="phil" value={cp.phi_h} onChange={v => setCp('phi_h', v)} onFocus={() => setFocused('ccp')} options={BITOLA_FLEX} />
-            <Field label="c/" value={cp.s_h} onChange={v => setCp('s_h', v)} onFocus={() => setFocused('ccp')} placeholder="10" suffix="cm" />
+            <Field label="c/" value={cp.s_h} onChange={v => setCp('s_h', v)} onFocus={() => setFocused('ccp')} suffix="cm" />
             <Field label="A. Ver. Ø" helpKey="phil" value={cp.phi_v} onChange={v => setCp('phi_v', v)} onFocus={() => setFocused('ccp')} options={BITOLA_FLEX} />
-            <Field label="c/" value={cp.s_v} onChange={v => setCp('s_v', v)} onFocus={() => setFocused('ccp')} placeholder="10" suffix="cm" />
+            <Field label="c/" value={cp.s_v} onChange={v => setCp('s_v', v)} onFocus={() => setFocused('ccp')} suffix="cm" />
           </div>
           <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
             Barras inferiores que cruzam cada face do pilar. Necessário{' '}
@@ -395,17 +402,17 @@ function BlocoColapso({ data, set, setFocused }) {
 
 // ── Step 5: Studs ─────────────────────────────────────────
 function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, locked, unlockReason }) {
-  const tipoArm = data.tipoArm === 'estribo' ? 'estribo' : 'conector';
+  const tipoArm = data.tipoArm === 'estribo' || data.tipoArm === 'conector' ? data.tipoArm : null;
   const summary = data.studs?.phi
-    ? [{ lbl: 'Tipo', val: tipoArm === 'estribo' ? 'Estribo' : 'Conector' }, { lbl: 'Ø', val: `${data.studs.phi} mm` }, { lbl: 'nconec', val: data.studs.nconec }, { lbl: 'ncam', val: data.studs.ncam }]
+    ? [{ lbl: 'Tipo', val: tipoArm === 'estribo' ? 'Estribo' : tipoArm === 'conector' ? 'Conector' : '—' }, { lbl: 'Ø', val: `${data.studs.phi} mm` }, { lbl: 'nconec', val: data.studs.nconec }, { lbl: 'ncam', val: data.studs.ncam }]
     : [];
   const phiMax = derived?.h ? (derived.h / 2) : null; // Ø ≤ h/20 in mm: h/20*10
   const phiMaxMm = derived?.h ? (derived.h * 10 / 20) : null;
 
   // fywd ao vivo (item 19.4.2): base 250 (estribo) ou 300 (conector) → 435 MPa
-  const fywdBase = tipoArm === 'estribo' ? 250 : 300;
+  const fywdBase = tipoArm === 'estribo' ? 250 : tipoArm === 'conector' ? 300 : null;
   const hLaje = derived?.h;
-  const fywdLive = hLaje
+  const fywdLive = hLaje && fywdBase
     ? (hLaje <= 15 ? fywdBase : hLaje >= 35 ? 435 : fywdBase + (hLaje - 15) * (435 - fywdBase) / 20)
     : null;
 
@@ -463,7 +470,7 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
         </div>
         <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
           f<sub>ywd</sub> = <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{fywdLive ? fywdLive.toFixed(1) + ' MPa' : '—'}</span>
-          {' '}<HelpDot k="tipoArm" /> (base {fywdBase} MPa → 435 MPa conforme h)
+          {' '}<HelpDot k="tipoArm" /> {fywdBase ? <>(base {fywdBase} MPa → 435 MPa conforme h)</> : <>(escolha o tipo de armadura)</>}
         </div>
       </div>
       <div className="grid-3">
@@ -481,7 +488,7 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
           value={data.studs?.nconec}
           onChange={v => set({ studs: { ...(data.studs||{}), nconec: v }})}
           onFocus={() => setFocused('nconec')}
-          placeholder="8"
+         
         />
         <Field
           label="n<sub>cam</sub>"
@@ -489,7 +496,7 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
           value={data.studs?.ncam}
           onChange={v => set({ studs: { ...(data.studs||{}), ncam: v }})}
           onFocus={() => setFocused('ncam')}
-          placeholder="3"
+         
         />
       </div>
 
@@ -539,11 +546,12 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
 }
 
 // Botão que resolve a armadura em vez de o projetista arbitrá-la.
-// A etapa 8 (contorno C′) define n_conec e a etapa 9 (contorno C″) define
-// n_cam; a bitola continua sendo escolha de quem projeta.
+// Primeiro a etapa 8 (contorno C′) define n_conec; depois, com esse n_conec,
+// a etapa 9 (contorno C″) acrescenta camadas até passar. A bitola continua
+// sendo escolha de quem projeta.
 function AutoArmadura({ data, set }) {
   const [res, setRes] = useStateS(null);
-  const podeRodar = data.studs?.phi > 0;
+  const podeRodar = data.studs?.phi > 0 && !!data.tipoArm;
 
   const rodar = () => {
     const r = window.dimensionarArmadura(data);
@@ -553,6 +561,11 @@ function AutoArmadura({ data, set }) {
 
   // Uma roseta muito grande passa nas contas mas não se constrói: avisa.
   const exagerado = res?.ok && (res.ncam > 6 || res.nconec > 20);
+  // última tentativa de cada etapa = a que definiu o valor adotado
+  const ult = etapa => res?.tentativas?.filter(t => t.etapa === etapa).pop();
+  const t8 = ult(8), t9 = ult(9);
+  const n3 = v => Number.isFinite(v) ? v.toFixed(3).replace('.', ',') : '—';
+  const n2 = v => Number.isFinite(v) ? v.toFixed(2).replace('.', ',') : '—';
 
   return (
     <div className="auto-arm">
@@ -562,8 +575,8 @@ function AutoArmadura({ data, set }) {
         </button>
         <span className="auto-arm-nota">
           {podeRodar
-            ? <>Busca o menor n<sub>conec</sub> que atende C′ e o menor n<sub>cam</sub> que atende C″.</>
-            : <>Escolha primeiro a bitola do conector.</>}
+            ? <>Define o menor n<sub>conec</sub> que atende C′ e, com ele, acrescenta camadas até C″ passar.</>
+            : <>Escolha primeiro o tipo de armadura e a bitola do conector.</>}
         </span>
       </div>
       {res && !res.ok && (
@@ -577,6 +590,18 @@ function AutoArmadura({ data, set }) {
             Ø{res.phi} · n<sub>conec</sub> = {res.nconec} · n<sub>cam</sub> = {res.ncam}
           </span>{' '}
           após {res.tentativas.length} tentativas.
+          <div style={{marginTop: 4}}>
+            1. Etapa 8 (C′): n<sub>conec</sub> = {res.nconec} → τ<sub>Rd3</sub> = {n3(t8?.tauRd)} ≥ τ<sub>Sd</sub> = {n3(t8?.tauSd)} MPa
+          </div>
+          <div>
+            2. Etapa 9 (C″), com {res.nconec} conectores: n<sub>cam</sub> = {res.ncam} → τ<sub>Sd</sub> = {n3(t9?.tauSd)} ≤ τ<sub>Rd1</sub> = {n3(t9?.tauRd)} MPa
+          </div>
+          {res.seExcedido && (
+            <div className="field-error" style={{marginTop: 4}}>
+              ⚠ Na última camada, s<sub>e</sub> = {n2(res.se_real)} cm &gt; 2d = {n2(res.se_lim)} cm.
+              O n<sub>conec</sub> da etapa 8 foi mantido — aumente-o à mão, aumente a bitola ou reduza s<sub>r</sub>.
+            </div>
+          )}
           {exagerado && (
             <div className="field-error" style={{marginTop: 4}}>
               ⚠ Arranjo pouco construtivo ({res.nconec}×{res.ncam} = {res.nconec * res.ncam} conectores).
@@ -603,7 +628,7 @@ function isStepDone(n, data) {
   if (n === 1) return data.posicao && ((data.secao === 'retangular' && data.C1 > 0 && data.C2 > 0) || (data.secao === 'circular' && data.diam > 0));
   if (n === 2) return Number.isFinite(data.Fsk) && data.Fsk !== 0;
   if (n === 3) return data.h > 0 && data.fck > 0 && data.fyk > 0;
-  if (n === 4) return data.cobrimento > 0 && data.phi_lx > 0 && data.phi_ly > 0 && data.s_x > 0 && data.s_y > 0;
+  if (n === 4) return data.cobrimento > 0 && (data.camadaExterna === 'x' || data.camadaExterna === 'y') && data.phi_lx > 0 && data.phi_ly > 0 && data.s_x > 0 && data.s_y > 0;
   return false;
 }
 

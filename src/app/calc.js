@@ -360,20 +360,21 @@ function calcularPuncao(inputs) {
 //  Dimensionamento automático da armadura de punção
 //
 //  Em vez de o projetista arbitrar a armadura e conferir se passa,
-//  aqui o programa busca a menor armadura que iguala ou supera a
-//  solicitação. A busca é separada em duas, porque as variáveis não
-//  se cruzam:
+//  aqui o programa monta a armadura na mesma ordem do memorial:
 //
-//    • Etapa 8 (contorno C′) → número de CONECTORES POR CAMADA.
-//      Só o nconec entra em Asw, e Asw não altera nenhum perímetro.
+//    1. Etapa 8 (contorno C′) → número de CONECTORES POR CAMADA.
+//       O menor nconec com τSd,C′ ≤ τRd3. Só o nconec entra em Asw,
+//       e τRd3 não depende do número de camadas.
 //
-//    • Etapa 9 (contorno C″) → número de CAMADAS.
-//      Só o ncam afasta o contorno C″ do pilar (p = s0 + (ncam−1)·sr),
-//      e isso não altera Asw.
+//    2. Etapa 9 (contorno C″) → número de CAMADAS, com o nconec já
+//       definido. As camadas são acrescentadas uma a uma até que
+//       τSd,C″ ≤ τRd1 — cada camada afasta o contorno C″ do pilar
+//       (p = s0 + (ncam−1)·sr).
 //
-//  Como o ncam também empurra a camada externa para fora, aumentando o
-//  espaçamento tangencial se, o ncam é resolvido primeiro e o nconec
-//  depois — assim o limite se ≤ 2d é conferido já na geometria final.
+//  O nconec da etapa 8 não é revisto depois. Se as camadas levarem a
+//  roseta tão longe que o espaçamento tangencial da última camada passe
+//  de 2d, isso é devolvido como aviso (seExcedido) para o projetista
+//  decidir — aumentar a bitola, reduzir sr ou acrescentar conectores.
 //
 //  A bitola Ø é decisão construtiva do projetista e não é alterada.
 // ============================================================
@@ -404,40 +405,42 @@ function dimensionarArmadura(inputs, opcoes = {}) {
 
   const tentativas = [];
 
-  // ── Etapa 9 primeiro: quantas camadas para o contorno C″ passar ──
-  // τSd,C″ cai monotonicamente com ncam (u3 e Wp crescem), então a
-  // primeira que passar é a mínima.
-  let ncam = null;
-  for (let m = 1; m <= NCAM_MAX; m++) {
-    const R = tentar(nconecMin, m);
-    const ok = !!R.etapa9?.verif4;
-    tentativas.push({ etapa: 9, ncam: m, tauSd: R.etapa9?.tauSd_Cpp, tauRd: R.tauRd1, ok });
-    if (ok) { ncam = m; break; }
-  }
-  if (ncam === null) {
-    return { ok: false, motivo: 'ncam', tentativas,
-      texto: `Nem com ${NCAM_MAX} camadas o contorno C″ é atendido. ` +
-             'Reveja a espessura da laje, o fck ou a armadura de flexão.' };
-  }
-
-  // ── Etapa 8 depois: quantos conectores por camada em C′ ──
-  // Precisa atender resistência (τSd ≤ τRd3) e o espaçamento
-  // tangencial da camada externa (se ≤ 2d), que depende do ncam acima.
-  let nconec = null, resultado = null;
+  // ── 1. Etapa 8: quantos conectores por camada para C′ passar ──
+  // τRd3 cresce com nconec (via Asw) e independe de ncam, então basta
+  // uma camada para testar, e o primeiro nconec que passar é o mínimo.
+  let nconec = null;
   for (let n = nconecMin; n <= NCONEC_MAX; n += passoNconec) {
-    const R = tentar(n, ncam);
-    const ok = !!R.verif3 && !!R.studs?.se_ok;
-    tentativas.push({ etapa: 8, nconec: n, tauSd: R.tauSd_Cl, tauRd: R.tauRd3,
-                      se: R.studs?.se_real, ok });
-    if (ok) { nconec = n; resultado = R; break; }
+    const R = tentar(n, 1);
+    const ok = !!R.verif3;
+    tentativas.push({ etapa: 8, nconec: n, tauSd: R.tauSd_Cl, tauRd: R.tauRd3, ok });
+    if (ok) { nconec = n; break; }
   }
   if (nconec === null) {
-    return { ok: false, motivo: 'nconec', tentativas, ncam,
+    return { ok: false, motivo: 'nconec', tentativas,
       texto: `Nem com ${NCONEC_MAX} conectores por camada o contorno C′ é atendido. ` +
              'Aumente a bitola do conector ou reduza sr.' };
   }
 
-  return { ok: true, phi, nconec, ncam, tentativas, resultado };
+  // ── 2. Etapa 9: com esse nconec, quantas camadas para C″ passar ──
+  // τSd,C″ cai monotonicamente com ncam (u3 e Wp crescem), então a
+  // primeira camada que passar é a mínima.
+  let ncam = null, resultado = null;
+  for (let m = 1; m <= NCAM_MAX; m++) {
+    const R = tentar(nconec, m);
+    const ok = !!R.etapa9?.verif4;
+    tentativas.push({ etapa: 9, nconec, ncam: m, tauSd: R.etapa9?.tauSd_Cpp, tauRd: R.tauRd1,
+                      se: R.studs?.se_real, ok });
+    if (ok) { ncam = m; resultado = R; break; }
+  }
+  if (ncam === null) {
+    return { ok: false, motivo: 'ncam', tentativas, nconec,
+      texto: `Com ${nconec} conectores por camada, nem ${NCAM_MAX} camadas atendem o contorno C″. ` +
+             'Reveja a espessura da laje, o fck ou a armadura de flexão.' };
+  }
+
+  const seExcedido = !resultado.studs.se_ok;
+  return { ok: true, phi, nconec, ncam, tentativas, resultado, seExcedido,
+           se_real: resultado.studs.se_real, se_lim: resultado.se_lim };
 }
 
 window.calcularPuncao = calcularPuncao;

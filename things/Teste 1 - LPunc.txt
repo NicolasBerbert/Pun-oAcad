@@ -1,0 +1,36 @@
+--------------------------------------------------------------------------------------
+
+Relatório LPunc (Resumo) - Punção em Lajes - 21/09/2026 21:07:38
+
+--------------------------------------------------------------------------------------
+Atenção! Erros encontrados!
+Armadura Contra Colapso Progressivo Insuficiente!
+
+Carregamento
+Fd (tf) 60.9
+Mxd (tf.m) 25.62
+Myd (tf.m) 18.76
+
+Colapso Progressivo
+Armadura necessária (cm²) 18.01
+Armadura detalhada (cm²) 4.71
+Insuficiente!
+
+Superfície C
+TSd (MPa) 3.54
+TRd2 (MPa) 5.81
+Ok!
+
+Superfície C' - Verificação Inicial
+TSd (MPa) 3.69
+TRd1 (MPa) 0.72
+Armar!
+
+Superfície C'
+TRd3 (MPa) 3.74
+Ok!
+
+Superfície C''
+TSd (MPa) 0.68
+TRd1 (MPa) 0.72
+Ok!

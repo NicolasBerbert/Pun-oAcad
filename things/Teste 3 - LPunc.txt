@@ -1,0 +1,29 @@
+--------------------------------------------------------------------------------------
+
+Relatório LPunc (Resumo) - Punção em Lajes - 21/09/2026 22:17:32
+
+--------------------------------------------------------------------------------------
+
+Carregamento
+Fd (tf) 60.9
+Mxd (tf.m) 25.62
+Myd (tf.m) 18.76
+
+Superfície C
+TSd (MPa) 3.54
+TRd2 (MPa) 5.09
+Ok!
+
+Superfície C' - Verificação Inicial
+TSd (MPa) 3.69
+TRd1 (MPa) 0.64
+Armar!
+
+Superfície C'
+TRd3 (MPa) 3.76
+Ok!
+
+Superfície C''
+TSd (MPa) 0.63
+TRd1 (MPa) 0.64
+Ok!

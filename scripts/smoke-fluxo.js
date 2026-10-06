@@ -2,6 +2,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const { carregarCasoReferencia } = require('./caso-referencia');
 
 const TMP = process.env.SMOKE_DIR || path.join(__dirname, '..');
 const problemas = [];
@@ -20,6 +21,7 @@ app.whenReady().then(async () => {
   });
 
   await win.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+  await carregarCasoReferencia(win);
   await new Promise(r => setTimeout(r, 2500));
 
   // dispara o cálculo pelo botão real da interface

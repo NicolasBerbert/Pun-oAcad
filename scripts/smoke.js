@@ -3,6 +3,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const { carregarCasoReferencia } = require('./caso-referencia');
 
 const SAIDA = process.env.SMOKE_OUT || path.join(__dirname, '..', 'smoke.png');
 const problemas = [];
@@ -25,6 +26,7 @@ app.whenReady().then(async () => {
     problemas.push(`[preload] ${erro}`));
 
   await win.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+  await carregarCasoReferencia(win);
   await new Promise(r => setTimeout(r, 3500));
 
   const diag = await win.webContents.executeJavaScript(`(() => ({

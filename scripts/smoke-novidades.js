@@ -2,6 +2,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const { carregarCasoReferencia } = require('./caso-referencia');
 
 const DIR = process.env.OUT_DIR || path.join(__dirname, '..');
 const problemas = [];
@@ -14,6 +15,7 @@ app.whenReady().then(async () => {
   win.webContents.on('console-message', (_e, n, m, l, o) => { if (n >= 2) problemas.push(`${m} (${o}:${l})`); });
 
   await win.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+  await carregarCasoReferencia(win);
   await new Promise(r => setTimeout(r, 1500));
 
   await win.webContents.executeJavaScript(`(() => {

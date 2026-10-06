@@ -65,9 +65,12 @@ module.exports = function criarMenu(janela) {
               message: 'PunçãoAcad',
               detail:
                 `Versão ${app.getVersion()}\n\n` +
-                'Dimensionamento de punção em lajes de concreto armado\n' +
-                'conforme ABNT NBR 6118.\n\n' +
-                'Nicolas Berbert',
+                'Software para dimensionamento da armadura de punção em lajes lisas ' +
+                'de concreto armado, desenvolvido no âmbito do PIBIC, com financiamento ' +
+                'do CNPq, na Universidade Estadual de Maringá (UEM).\n\n' +
+                'Autora: Camila Aguiar Camargo\n' +
+                'Orientador: Prof. Dr. Elyson Andrew Pozo Liberati\n' +
+                'Colaboração técnica: Nicolas Figueiredo Berbert (UniFil – Londrina)',
               buttons: ['Fechar'],
             });
           },

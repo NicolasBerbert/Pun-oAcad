@@ -5,21 +5,22 @@ const { useState, useEffect, useMemo, useRef } = React;
 //  App — main composition
 // ============================================================
 
-// Caso de referência: "Atividade 1 — punção em pilar centrado com momentos
-// nas duas direções" (Programa Master PEC IBRACON). Abrir o app já reproduz
-// o exercício resolvido, permitindo conferir todas as etapas.
+// Formulário em branco: nenhuma seção, camada ou tipo de armadura vem
+// escolhido de antemão — quem projeta informa tudo. O caso de referência
+// (Atividade 1, Master PEC IBRACON) fica em scripts/caso-referencia.js,
+// usado pelos testes automatizados.
 const DEFAULT_DATA = {
-  secao: 'retangular',
-  posicao: 'centro',
-  C1: 40, C2: 25, diam: null,
-  Fsk: 435, Mxk: 18300, Myk: 13400,
-  h: 17, fck: 35, fyk: 500,
-  cobrimento: 2.5,
-  camadaExterna: 'y',
-  phi_lx: 12.5, s_x: 15,
-  phi_ly: 12.5, s_y: 15,
+  secao: null,
+  posicao: 'centro',   // única posição disponível por ora
+  C1: null, C2: null, diam: null,
+  Fsk: null, Mxk: null, Myk: null,
+  h: null, fck: null, fyk: null,
+  cobrimento: null,
+  camadaExterna: null,
+  phi_lx: null, s_x: null,
+  phi_ly: null, s_y: null,
   studs: null,
-  tipoArm: 'estribo',
+  tipoArm: null,
   espac: null,
   u3_manual: null,
   axial: null,   // { ativo, Nsdx, Nsdy, Ac } — compressão axial (σcp)
@@ -36,7 +37,7 @@ function App() {
     } catch {}
     return DEFAULT_DATA;
   });
-  const [projectName, setProjectName] = useState(() => localStorage.getItem('puncao_name') || 'Caso de estudo 01');
+  const [projectName, setProjectName] = useState(() => localStorage.getItem('puncao_name') || '');
   const [activeStep, setActiveStep] = useState(1);
   const [focused, setFocused] = useState(null);
   const [view, setView] = useState('3d');
@@ -69,7 +70,7 @@ function App() {
   };
 
   const limparCaso = () => {
-    setData(DEFAULT_DATA); setResults(null); setCalculated(false); setActiveStep(1);
+    setData(DEFAULT_DATA); setProjectName(''); setResults(null); setCalculated(false); setActiveStep(1);
   };
 
   // Derived geometry (for helper diagrams that need d/dx/dy live).
@@ -102,13 +103,13 @@ function App() {
     const R = calcularPuncao({
       secao: data.secao,
       C1: data.C1, C2: data.C2, diam: data.diam,
-      Fsk: data.Fsk, Mxk: data.Mxk, Myk: data.Myk,
+      Fsk: data.Fsk, Mxk: data.Mxk || 0, Myk: data.Myk || 0,
       h: data.h, fck: data.fck, fyk: data.fyk,
       cobrimento: data.cobrimento,
       camadaExterna: data.camadaExterna || 'y',
       phi_lx: data.phi_lx, phi_ly: data.phi_ly,
       s_x: data.s_x, s_y: data.s_y,
-      studs: data.studs?.phi && data.studs?.nconec && data.studs?.ncam ? data.studs : null,
+      studs: data.tipoArm && data.studs?.phi && data.studs?.nconec && data.studs?.ncam ? data.studs : null,
       tipoArm: data.tipoArm || 'estribo',
       espac: data.espac || null,
       u3_manual: data.u3_manual || null,
@@ -191,7 +192,7 @@ function App() {
           <span className="brand-title">PunçãoAcad</span>
           <span className="brand-sub">ABNT NBR 6118:2026 · pilar interno</span>
         </div>
-        <input className="project-name" value={projectName} onChange={e => setProjectName(e.target.value)} aria-label="Nome do projeto" />
+        <input className="project-name" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="Nome do projeto" aria-label="Nome do projeto" />
         <div className="topbar-spacer"></div>
         <div className="topbar-actions">
           <button className="btn btn-sm btn-ghost" onClick={limparCaso}>
