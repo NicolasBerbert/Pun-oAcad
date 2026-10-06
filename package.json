@@ -1,0 +1,79 @@
+{
+  "name": "puncaoacad",
+  "productName": "PunçãoAcad",
+  "version": "1.2.0",
+  "description": "Dimensionamento de punção em lajes de concreto armado — ABNT NBR 6118",
+  "author": {
+    "name": "Camila Aguiar Camargo"
+  },
+  "license": "UNLICENSED",
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "icone": "node scripts/icone.mjs",
+    "start": "npm run build && electron .",
+    "teste": "node test/referencia.mjs && npm run build && electron scripts/smoke.js && electron scripts/smoke-fluxo.js && electron scripts/smoke-dxf.js && electron scripts/smoke-novidades.js",
+    "dist": "npm run preparar-cache && npm run build && electron-builder --win",
+    "dist:dir": "npm run preparar-cache && npm run build && electron-builder --win --dir",
+    "preparar-cache": "node scripts/preparar-cache.mjs"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "br.eng.berbert.puncaoacad",
+    "productName": "PunçãoAcad",
+    "copyright": "© 2026 Camila Aguiar Camargo",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/index.html",
+      "src/app/styles.css",
+      "src/app/build/**/*",
+      "src/vendor/**/*",
+      "package.json",
+      "build/icon.ico"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "executableName": "PuncaoAcad",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PunçãoAcad",
+      "installerLanguages": [
+        "pt_BR"
+      ],
+      "artifactName": "PuncaoAcad-Setup-${version}.${ext}",
+      "uninstallDisplayName": "PunçãoAcad ${version}"
+    },
+    "portable": {
+      "artifactName": "PuncaoAcad-Portatil-${version}.${ext}"
+    }
+  }
+}

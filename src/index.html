@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Tudo é local: nada nesta janela pode buscar recurso na rede. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none';
+                 script-src 'self';
+                 style-src 'self' 'unsafe-inline';
+                 font-src 'self';
+                 img-src 'self' data: blob:;
+                 connect-src 'self' data: blob:;">
+
+  <title>PunçãoAcad · Dimensionamento de Punção · NBR 6118:2026</title>
+
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="app/styles.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Bibliotecas embarcadas (builds de produção) -->
+  <script src="vendor/react.production.min.js"></script>
+  <script src="vendor/react-dom.production.min.js"></script>
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
+
+  <!-- Aplicação, já transpilada por scripts/build.mjs -->
+  <script src="app/build/desktop.js"></script>
+  <script src="app/build/calc.js"></script>
+  <script src="app/build/dxf.js"></script>
+  <script src="app/build/HelperDiagrams.js"></script>
+  <script src="app/build/Viewer3D.js"></script>
+  <script src="app/build/Detalhamento.js"></script>
+  <script src="app/build/Relatorio.js"></script>
+  <script src="app/build/Results.js"></script>
+  <script src="app/build/Steps.js"></script>
+  <script src="app/build/App.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>PunçãoAcad · teste de impressão</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app/styles.css">
+  <script>
+    // caso de referência já com armadura definida
+    localStorage.setItem('puncao_name', 'Edifício Aurora — Pilar P12');
+    localStorage.setItem('puncao_data', JSON.stringify({
+      secao: 'retangular', posicao: 'centro', C1: 40, C2: 25, diam: null,
+      Fsk: 435, Mxk: 18300, Myk: 13400,
+      h: 17, fck: 35, fyk: 500, cobrimento: 2.5, camadaExterna: 'y',
+      phi_lx: 12.5, s_x: 15, phi_ly: 12.5, s_y: 15,
+      tipoArm: 'estribo',
+      studs: { phi: 8, nconec: 16, ncam: 3 },
+      espac: { s0: 7, sr: 10, se: 21 },
+      u3_manual: 457.05
+    }));
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script src="app/calc.js"></script>
+  <script src="app/dxf.js"></script>
+  <script type="text/babel" data-presets="env,react" src="app/HelperDiagrams.jsx"></script>
+  <script type="text/babel" data-presets="env,react" src="app/Viewer3D.jsx"></script>
+  <script type="text/babel" data-presets="env,react" src="app/Detalhamento.jsx"></script>
+  <script type="text/babel" data-presets="env,react" src="app/Relatorio.jsx"></script>
+  <script type="text/babel" data-presets="env,react" src="app/Results.jsx"></script>
+  <script type="text/babel" data-presets="env,react" src="app/Steps.jsx"></script>
+  <script type="text/babel" data-presets="env,react" src="app/App.jsx"></script>
+
+  <script>
+    // dispara o cálculo assim que o app montar, para o relatório existir na impressão
+    (function esperar() {
+      var b = document.querySelector('.calc-button');
+      if (b) { b.click(); return; }
+      setTimeout(esperar, 120);
+    })();
+  </script>
+</body>
+</html>
