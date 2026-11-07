@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PunçãoAcad</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+    <!-- ── Cabeçalho ── -->
+    <header>
+        <div class="header-icone">🧱</div>
+        <h1>PunçãoAcad</h1>
+        <p class="subtitulo">Dimensionamento da armadura de punção em lajes lisas de concreto armado · ABNT NBR 6118:2023</p>
+    </header>
+
+    <div class="container">
+
+        <!-- ══════════════════════════════
+             CARD 1 – PILAR
+        ══════════════════════════════ -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icone-secao">⬛</span>
+                <h2>Dados do Pilar</h2>
+            </div>
+            <div class="card-body">
+
+                <p class="campo-label">Tipo de Seção</p>
+                <div class="radio-grupo">
+                    <label class="radio-opcao">
+                        <input type="radio" name="txsecao" id="retangular" checked>
+                        Retangular
+                    </label>
+                    <label class="radio-opcao">
+                        <input type="radio" name="txsecao" id="circular">
+                        Circular
+                    </label>
+                </div>
+
+                <!-- Retangular -->
+                <div id="dims-retangular">
+                    <p class="sub-titulo">Dimensões em planta</p>
+                    <div class="grid-2">
+                        <div class="campo-grupo">
+                            <label for="bpilar">Dimensão b — C<sub>1</sub> (cm)</label>
+                            <input type="number" id="bpilar" name="bpilar" placeholder="ex: 40" min="0">
+                        </div>
+                        <div class="campo-grupo">
+                            <label for="hpilar">Dimensão h — C<sub>2</sub> (cm)</label>
+                            <input type="number" id="hpilar" name="hpilar" placeholder="ex: 25" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Circular (oculto por padrão) -->
+                <div id="dims-circular" style="display:none;">
+                    <p class="sub-titulo">Diâmetro</p>
+                    <div class="campo-grupo">
+                        <label for="diampilar">Diâmetro &phi; (cm)</label>
+                        <input type="number" id="diampilar" name="diampilar" placeholder="ex: 50" min="0">
+                    </div>
+                </div>
+
+                <hr class="divisor">
+
+                <div class="campo-grupo">
+                    <label for="posicao">Posição do Pilar</label>
+                    <select id="posicao" name="posicao">
+                        <option value="">Selecione</option>
+                        <option value="centro">Interno (centro)</option>
+                        <option value="extremidade" disabled>Extremidade (em desenvolvimento)</option>
+                        <option value="canto" disabled>Canto (em desenvolvimento)</option>
+                    </select>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- ══════════════════════════════
+             CARD 2 – CARREGAMENTOS
+        ══════════════════════════════ -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icone-secao">⬇️</span>
+                <h2>Carregamentos Característicos</h2>
+            </div>
+            <div class="card-body">
+                <div class="grid-3">
+                    <div class="campo-grupo">
+                        <label for="fk">F<sub>sk</sub> (kN)</label>
+                        <input type="number" id="fk" name="fk" placeholder="ex: 185" min="0">
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="mxk">M<sub>xk</sub> (kN.cm)</label>
+                        <input type="number" id="mxk" name="mxk" placeholder="ex: 8100" min="0">
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="myk">M<sub>yk</sub> (kN.cm)</label>
+                        <input type="number" id="myk" name="myk" placeholder="ex: 5400" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ══════════════════════════════
+             CARD 3 – LAJE E MATERIAL
+        ══════════════════════════════ -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icone-secao">▭</span>
+                <h2>Laje e Material</h2>
+            </div>
+            <div class="card-body">
+
+                <p class="sub-titulo">Geometria da Laje</p>
+                <div class="grid-2">
+                    <div class="campo-grupo">
+                        <label for="hlaje">Altura total h (cm)</label>
+                        <input type="number" id="hlaje" name="hlaje" placeholder="ex: 17" min="0">
+                    </div>
+                </div>
+
+                <hr class="divisor">
+
+                <p class="sub-titulo">Propriedades dos Materiais</p>
+                <div class="grid-2">
+                    <div class="campo-grupo">
+                        <label for="fck">f<sub>ck</sub> (MPa)</label>
+                        <input type="number" id="fck" name="fck" placeholder="ex: 40" min="0">
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="fyk">f<sub>yk</sub> (MPa)</label>
+                        <input type="number" id="fyk" name="fyk" placeholder="ex: 500" min="0">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- ══════════════════════════════
+             CARD 4 – ARMADURAS DA LAJE
+        ══════════════════════════════ -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icone-secao">✦</span>
+                <h2>Armaduras da Laje</h2>
+            </div>
+            <div class="card-body">
+
+                <p class="sub-titulo">Cobrimento e Estribo</p>
+                <div class="grid-3">
+                    <div class="campo-grupo">
+                        <label for="cobrimento">Cobrimento c (cm)</label>
+                        <input type="number" id="cobrimento" name="cobrimento" placeholder="ex: 2.5" min="0" step="0.1">
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="phiw_x">Estribo dir. x &phi;<sub>w</sub> (mm)</label>
+                        <select id="phiw_x" name="phiw_x">
+                            <option value="">Selecione</option>
+                            <option value="5">5 mm</option>
+                            <option value="6.3">6,3 mm</option>
+                            <option value="8">8 mm</option>
+                            <option value="10">10 mm</option>
+                            <option value="12.5">12,5 mm</option>
+                        </select>
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="phiw_y">Estribo dir. y &phi;<sub>w</sub> (mm)</label>
+                        <select id="phiw_y" name="phiw_y">
+                            <option value="">Selecione</option>
+                            <option value="5">5 mm</option>
+                            <option value="6.3">6,3 mm</option>
+                            <option value="8">8 mm</option>
+                            <option value="10">10 mm</option>
+                            <option value="12.5">12,5 mm</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="divisor">
+
+                <p class="sub-titulo">Armadura de Flexão — Direção x</p>
+                <div class="grid-2">
+                    <div class="campo-grupo">
+                        <label for="armadurah">Bitola &phi;<sub>lx</sub></label>
+                        <select id="armadurah" name="armadurah">
+                            <option value="">Selecione</option>
+                            <option value="6.3">&Phi; 6,3 mm</option>
+                            <option value="8">&Phi; 8 mm</option>
+                            <option value="10">&Phi; 10 mm</option>
+                            <option value="12.5">&Phi; 12,5 mm</option>
+                            <option value="16">&Phi; 16 mm</option>
+                            <option value="20">&Phi; 20 mm</option>
+                            <option value="25">&Phi; 25 mm</option>
+                            <option value="32">&Phi; 32 mm</option>
+                        </select>
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="espacamentoh">s<sub>x</sub> (cm)</label>
+                        <input type="number" id="espacamentoh" name="espacamentoh" placeholder="ex: 15" min="0">
+                    </div>
+                </div>
+
+                <hr class="divisor">
+
+                <p class="sub-titulo">Armadura de Flexão — Direção y</p>
+                <div class="grid-2">
+                    <div class="campo-grupo">
+                        <label for="armadurav">Bitola &phi;<sub>ly</sub></label>
+                        <select id="armadurav" name="armadurav">
+                            <option value="">Selecione</option>
+                            <option value="6.3">&Phi; 6,3 mm</option>
+                            <option value="8">&Phi; 8 mm</option>
+                            <option value="10">&Phi; 10 mm</option>
+                            <option value="12.5">&Phi; 12,5 mm</option>
+                            <option value="16">&Phi; 16 mm</option>
+                            <option value="20">&Phi; 20 mm</option>
+                            <option value="25">&Phi; 25 mm</option>
+                            <option value="32">&Phi; 32 mm</option>
+                        </select>
+                    </div>
+                    <div class="campo-grupo">
+                        <label for="espacamentov">s<sub>y</sub> (cm)</label>
+                        <input type="number" id="espacamentov" name="espacamentov" placeholder="ex: 15" min="0">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- ── Botão Calcular ── -->
+        <button class="btn-calcular" onclick="calcular()">
+            <span class="btn-icone">🧮</span>
+            Calcular Dimensionamento
+        </button>
+
+
+        <!-- ══════════════════════════════
+             CARD 5 – RESULTADOS
+        ══════════════════════════════ -->
+        <div class="card" id="card-resultados">
+            <div class="card-header">
+                <span class="icone-secao">📊</span>
+                <h2>Resultados do Cálculo</h2>
+            </div>
+            <div class="card-body">
+                <div id="resultados"></div>
+            </div>
+        </div>
+
+    </div><!-- /container -->
+
+    <footer>
+        <p>PunçãoAcad &nbsp;·&nbsp; ABNT NBR 6118:2023 &nbsp;·&nbsp; Departamento de Engenharia Civil – UEM</p>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        // Alterna entre pilar retangular e circular
+        document.getElementById('retangular').addEventListener('change', function () {
+            document.getElementById('dims-retangular').style.display = 'block';
+            document.getElementById('dims-circular').style.display = 'none';
+        });
+        document.getElementById('circular').addEventListener('change', function () {
+            document.getElementById('dims-retangular').style.display = 'none';
+            document.getElementById('dims-circular').style.display = 'block';
+        });
+
+
+    </script>
+
+</body>
+</html>
