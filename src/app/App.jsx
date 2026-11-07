@@ -25,6 +25,12 @@ const DEFAULT_DATA = {
   u3_manual: null,
   axial: null,   // { ativo, Nsdx, Nsdy, Ac } — compressão axial (σcp)
   ccp: null,     // { ativo, phi_h, s_h, phi_v, s_v } — colapso progressivo
+  momentoC: true,      // momentos no contorno C (19.5.3.1)
+  ampliaRd2: false,    // τRd2 ampliado em 20%
+  fywdAumento: true,   // aumento de fywd com a espessura (19.4.2)
+  distrib: null, // { ativo, gq } — carga distribuída, kN/m² (19.5.2.1)
+  abaco: null,   // { ativo, hc, Lt } — cm; só pilar circular (19.5.2.5)
+  abertura: null, // { ativo, dist, larg, dir } — cm (19.5.2.6)
 };
 
 const STEP_TITLES = ['Pilar', 'Cargas', 'Laje', 'Armaduras', 'Studs', 'Resultados'];
@@ -115,6 +121,13 @@ function App() {
       u3_manual: data.u3_manual || null,
       axial: data.axial?.ativo ? data.axial : null,
       ccp: data.ccp?.ativo ? data.ccp : null,
+      momentoC: data.momentoC !== false,
+      ampliaRd2: !!data.ampliaRd2,
+      fywdAumento: data.fywdAumento !== false,
+      distrib: data.distrib?.ativo ? data.distrib : null,
+      // ábaco só existe para pilar circular
+      abaco: data.secao === 'circular' && data.abaco?.ativo ? data.abaco : null,
+      abertura: data.abertura?.ativo ? data.abertura : null,
     });
     setResults(R);
     setCalculated(true);
@@ -222,6 +235,7 @@ function App() {
               onActivate={() => setActiveStep(1)}
               setFocused={setFocused}
               errs={errs}
+              derived={derived}
             />
             <StepCargas
               data={data} set={set}
@@ -236,6 +250,7 @@ function App() {
               onActivate={() => setActiveStep(3)}
               setFocused={setFocused}
               errs={errs}
+              derived={derived}
             />
             <StepArmaduras
               data={data} set={set}

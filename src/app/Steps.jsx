@@ -27,10 +27,31 @@ const HELP = {
   sr: { title: 'Espaçamento radial sr adotado', body: 'Distância entre camadas sucessivas de armadura. Limite: sr ≤ 0,75·d. Entra diretamente no termo 1,5·(d/sr) de τRd3.', ref: 'NBR 6118 · 19.5.3.3' },
   se: { title: 'Espaçamento se adotado', body: 'Distância entre conectores ao longo de um mesmo contorno. Limite: se ≤ 2·d.', ref: 'NBR 6118 · 19.5.3.3' },
   u3: { title: 'Perímetro u₃ medido', body: 'Perímetro do contorno C″, a 2d além da última camada de armadura. O app calcula u₃ = u₁ + 2π·(2d + p) com cantos arredondados; se você mediu o contorno poligonal em CAD, informe o valor medido aqui.', ref: 'NBR 6118 · 19.5.3.4' },
-  Nsd: { title: 'Força axial de compressão', body: 'Força normal de compressão atuante no contorno C′ na direção considerada — de protensão ou de restrição axial. Gera σcp, que soma uma parcela favorável a τRd1. Deixe em branco se a laje não tem compressão axial.', ref: 'NBR 6118 · 19.5.3.2' },
+  Nsd: { title: 'Força axial de compressão', body: 'Força normal de compressão atuante no contorno C′ na direção considerada — de protensão ou de restrição axial. Gera σcp, que soma uma parcela favorável a τRd1 e τRd3. Se σcp,x ou σcp,y for ≤ 1 MPa, o efeito favorável é desprezado. Deixe em branco se a laje não tem compressão axial.', ref: 'NBR 6118 · 19.5.3.2' },
   Ac: { title: 'Área Ac', body: 'Área de concreto associada à força axial de compressão, em cm². Usada em σcp = Nsd/Ac.', ref: 'NBR 6118 · 19.5.3.2' },
-  ccp: { title: 'Colapso progressivo', body: 'A armadura de flexão INFERIOR que atravessa o contorno C precisa, sozinha, suspender a força de punção caso a ligação rompa: ΣAs·fyd ≥ FSd, somando as barras que cruzam cada face do pilar. Essas barras devem estar bem ancoradas além do contorno.', ref: 'NBR 6118 · 19.5.4' },
+  ccp: { title: 'Colapso progressivo', body: 'A armadura de flexão INFERIOR que atravessa o contorno C deve atender fyd·As,ccp ≥ 1,5·FSd, com FSd calculado com γf = 1,2. As,ccp soma as barras que cruzam as faces do pilar nas duas direções, cada barra contada uma vez. Essas barras devem estar bem ancoradas além do contorno C′.', ref: 'NBR 6118 · 19.5.4' },
+  momentoC: { title: 'Momentos no contorno C', body: 'O τSd do contorno C segue 19.5.2 com u0 no lugar de u, incluindo os momentos com o Wp do próprio contorno (circular: Wp0 = Ø²; retangular: C1²/2 + C1·C2). Desligado, C é verificado só com a força, como na Atividade 1 do IBRACON e no LPunc.', ref: 'NBR 6118 · 19.5.3.1' },
+  ampliaRd2: { title: 'Ampliação de τRd2', body: 'τRd2 pode ser ampliado em 20% num pilar interno quando os vãos que chegam a ele não diferem mais de 50% e não há aberturas junto ao pilar. Com uma abertura a menos de 8d, a ampliação não é aplicada.', ref: 'NBR 6118 · 19.5.3.1' },
+  abaco: { title: 'Laje com ábaco', body: 'Só para pilar circular. hc é a espessura total da laje no ábaco e Lt a dimensão do ábaco em planta; ℓc = (Lt − Ø)/2 é a distância da face do pilar à borda do ábaco. Conforme ℓc, verifica-se C′2 (2d além da borda do ábaco), C′1 (2dc além da face do pilar) ou os dois. Com ábaco o app não dimensiona armadura de punção.', ref: 'NBR 6118 · 19.5.2.5' },
+  distrib: { title: 'Carga distribuída na laje', body: 'g + q característicos aplicados na face oposta ao pilar. FSd é reduzido de pd = 1,4·(g + q) vezes a área dentro do contorno C′ verificado. Os contornos C e C″ ficam sem redução, a favor da segurança.', ref: 'NBR 6118 · 19.5.2.1' },
+  abertura: { title: 'Abertura próxima', body: 'Abertura centrada num eixo do pilar, a uma distância da face e com largura medida perpendicularmente a esse eixo. A menos de 8d do contorno C, descarta-se o trecho dos contornos críticos entre as retas que passam pelo centro do pilar e tangenciam a abertura.', ref: 'NBR 6118 · 19.5.2.6' },
+  fywdAumento: { title: 'Aumento de fywd com a espessura', body: 'Para h > 15 cm a norma permite aumentar fywd por interpolação linear até 435 MPa em h = 35 cm. Desligado, fywd fica no valor-base (250 estribo, 300 conector), a favor da segurança.', ref: 'NBR 6118 · 19.4.2' },
 };
+
+// Alturas úteis ao vivo para uma espessura total (laje ou ábaco),
+// com a mesma convenção de camadas sobrepostas de calc.js.
+function alturasLive(hTot, data) {
+  const { cobrimento, phi_lx, phi_ly, camadaExterna } = data;
+  if (![hTot, cobrimento, phi_lx, phi_ly].every(v => Number.isFinite(v) && v > 0)) return null;
+  const lx = phi_lx / 10, ly = phi_ly / 10;
+  const extY = camadaExterna !== 'x';
+  const dy = extY ? hTot - cobrimento - ly / 2 : hTot - cobrimento - lx - ly / 2;
+  const dx = extY ? hTot - cobrimento - ly - lx / 2 : hTot - cobrimento - lx / 2;
+  return { dx, dy, d: (dx + dy) / 2 };
+}
+
+const nota = { fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4 };
+const valor = { color: 'var(--blue-900)', fontWeight: 600 };
 
 function HelpDot({ k }) {
   const h = HELP[k];
@@ -119,7 +140,7 @@ const BITOLA_ESTRIBO = [
 const BITOLA_STUD = BITOLA_ESTRIBO.concat([{ v: 16, l: '16 mm' }, { v: 20, l: '20 mm' }]);
 
 // ── Step 1: Pilar ──────────────────────────────────────────
-function StepPilar({ data, set, active, onActivate, focused, setFocused, errs }) {
+function StepPilar({ data, set, active, onActivate, focused, setFocused, errs, derived }) {
   const summary = !data.secao
     ? [{ lbl: 'Seção', val: '—' }, { lbl: 'Posição', val: 'Interno' }]
     : data.secao === 'circular'
@@ -176,6 +197,26 @@ function StepPilar({ data, set, active, onActivate, focused, setFocused, errs })
         </div>
       </div>
 
+      {data.secao === 'circular' && (
+        <BlocoAbaco data={data} set={set} setFocused={setFocused} derived={derived} />
+      )}
+
+      <div>
+        <div className="subhead">Contorno C</div>
+        <label className="check-linha">
+          <input type="checkbox" checked={data.momentoC !== false}
+            onChange={e => set({ momentoC: e.target.checked })} />
+          <span>Considerar os momentos no contorno C</span>
+          <HelpDot k="momentoC" />
+        </label>
+        <label className="check-linha">
+          <input type="checkbox" checked={!!data.ampliaRd2}
+            onChange={e => set({ ampliaRd2: e.target.checked })} />
+          <span>Ampliar τ<sub>Rd2</sub> em 20% (vãos que não diferem mais de 50%, sem aberturas junto ao pilar)</span>
+          <HelpDot k="ampliaRd2" />
+        </label>
+      </div>
+
       <div className="helper">
         <HelperPilar secao={data.secao} C1={data.C1} C2={data.C2} diam={data.diam} />
         <div className="lbl">
@@ -206,6 +247,7 @@ function StepCargas({ data, set, active, onActivate, setFocused, errs }) {
         <Field label="M<sub>yk</sub>" helpKey="Myk" value={data.Myk} onChange={v => set({ Myk: v })} onFocus={() => setFocused('Myk')} suffix="kN·cm" error={errs.Myk} />
       </div>
       <BlocoAxial data={data} set={set} setFocused={setFocused} />
+      <BlocoDistrib data={data} set={set} setFocused={setFocused} />
       <div className="helper">
         <HelperCargas Fsk={data.Fsk} Mxk={data.Mxk} Myk={data.Myk} />
         <div className="lbl">
@@ -230,6 +272,7 @@ function BlocoAxial({ data, set, setFocused }) {
   const sy = Ac && Number.isFinite(ax.Nsdy) ? 10 * ax.Nsdy / Ac : null;
   const scp = sx !== null || sy !== null ? ((sx || 0) + (sy || 0)) / 2 : null;
   const limitado = scp !== null && scp > 3.5;
+  const desprezado = sx !== null && sy !== null && (sx <= 1 || sy <= 1);
 
   return (
     <div>
@@ -252,7 +295,136 @@ function BlocoAxial({ data, set, setFocused }) {
               {scp === null ? '—' : (limitado ? 3.5 : scp).toFixed(3) + ' MPa'}
             </span>
             {limitado && <> — limitado a 3,5 MPa (valor calculado: {scp.toFixed(3)}).</>}
-            {' '}Entra em τ<sub>Rd1</sub> como + 0,10·σ<sub>cp</sub>.
+            {desprezado
+              ? <> σ<sub>cp,x</sub> ou σ<sub>cp,y</sub> ≤ 1 MPa: o efeito favorável é desprezado (19.5.3.2).</>
+              : <>{' '}Entra em τ<sub>Rd1</sub> como + 0,10·σ<sub>cp</sub>.</>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Laje com ábaco (19.5.2.5) — só para pilar circular. Entradas como na
+// Atividade 4 do IBRACON: espessura total no ábaco (hc) e dimensão do ábaco
+// em planta (Lt). A prévia classifica ℓc assim que h, hc, cobrimento e
+// bitolas estão preenchidos.
+function BlocoAbaco({ data, set, setFocused, derived }) {
+  const ab = data.abaco || {};
+  const ativo = !!ab.ativo;
+  const setAb = (k, v) => set({ abaco: { ...ab, ativo: true, [k]: v === '' ? null : v } });
+
+  const D = data.diam > 0 ? data.diam : null;
+  const lc = D && ab.Lt > 0 ? (ab.Lt - D) / 2 : null;
+  const dcv = ab.hc > 0 ? alturasLive(ab.hc, data) : null;
+  const d = derived?.d;
+  const dc = dcv?.d;
+  const lim1 = dc && d ? 2 * (dc - d) : null, lim2 = dc ? 2 * dc : null;
+  const caso = lim1 !== null && lc > 0 ? (lc <= lim1 ? 'apenas C′2' : lc <= lim2 ? 'apenas C′1' : 'C′1 e C′2') : null;
+  const hcBaixo = ab.hc > 0 && data.h > 0 && ab.hc <= data.h;
+  const ltBaixo = ab.Lt > 0 && D && ab.Lt <= D;
+
+  return (
+    <div>
+      <label className="check-linha">
+        <input type="checkbox" checked={ativo}
+          onChange={e => set({ abaco: e.target.checked ? { ...ab, ativo: true } : null })} />
+        <span>Laje com ábaco</span>
+        <HelpDot k="abaco" />
+      </label>
+      {ativo && (
+        <>
+          <div className="grid-2">
+            <Field label="h<sub>c</sub> (espessura no ábaco)" helpKey="abaco" value={ab.hc} onChange={v => setAb('hc', v)}
+              onFocus={() => setFocused('abaco')} suffix="cm" error={hcBaixo ? 'hc deve ser maior que h' : null} />
+            <Field label="L<sub>t</sub> (ábaco em planta)" helpKey="abaco" value={ab.Lt} onChange={v => setAb('Lt', v)}
+              onFocus={() => setFocused('abaco')} suffix="cm" error={ltBaixo ? 'Lt deve ser maior que Ø' : null} />
+          </div>
+          <div style={nota}>
+            ℓ<sub>c</sub> = (L<sub>t</sub> − Ø)/2 = <span className="mono" style={valor}>{lc > 0 ? lc.toFixed(1) + ' cm' : '—'}</span>
+            {' '}· d<sub>c</sub> = <span className="mono" style={valor}>{dc ? dc.toFixed(2) + ' cm' : '—'}</span>
+            {' '}· 2(d<sub>c</sub> − d) = <span className="mono" style={valor}>{lim1 !== null ? lim1.toFixed(2) : '—'}</span>
+            {' '}· 2d<sub>c</sub> = <span className="mono" style={valor}>{lim2 ? lim2.toFixed(2) : '—'}</span> cm
+            {caso && <> → verificar <b>{caso}</b>.</>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Carga distribuída (19.5.2.1): reduz FSd dentro do contorno C′.
+function BlocoDistrib({ data, set, setFocused }) {
+  const cd = data.distrib || {};
+  const ativo = !!cd.ativo;
+  const pd = Number.isFinite(cd.gq) && cd.gq > 0 ? 1.4 * cd.gq : null;
+  return (
+    <div>
+      <label className="check-linha">
+        <input type="checkbox" checked={ativo}
+          onChange={e => set({ distrib: e.target.checked ? { ...cd, ativo: true } : null })} />
+        <span>Reduzir F<sub>Sd</sub> da carga distribuída dentro de C′</span>
+        <HelpDot k="distrib" />
+      </label>
+      {ativo && (
+        <>
+          <div className="grid-3">
+            <Field label="g + q (característica)" helpKey="distrib" value={cd.gq}
+              onChange={v => set({ distrib: { ...cd, ativo: true, gq: v === '' ? null : v } })}
+              onFocus={() => setFocused('distrib')} suffix="kN/m²" />
+          </div>
+          <div style={nota}>
+            p<sub>d</sub> = 1,4·(g + q) = <span className="mono" style={valor}>{pd ? pd.toFixed(2) + ' kN/m²' : '—'}</span>,
+            multiplicado pela área dentro do contorno C′ verificado.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Abertura próxima ao pilar (19.5.2.6).
+function BlocoAbertura({ data, set, setFocused, derived }) {
+  const ab = data.abertura || {};
+  const ativo = !!ab.ativo;
+  const setAb = (k, v) => set({ abertura: { ...ab, ativo: true, [k]: v === '' ? null : v } });
+  const dir = ab.dir || '+x';
+  const circ = data.secao === 'circular';
+  const meia = circ ? data.diam / 2 : (dir === '+x' || dir === '-x' ? data.C1 / 2 : data.C2 / 2);
+  const ok = meia > 0 && ab.dist > 0 && ab.larg > 0;
+  const theta = ok ? 2 * Math.atan((ab.larg / 2) / (meia + ab.dist)) : null;
+  const d = derived?.d;
+  const influi = ok && d ? ab.dist < 8 * d : null;
+
+  return (
+    <div>
+      <label className="check-linha">
+        <input type="checkbox" checked={ativo}
+          onChange={e => set({ abertura: e.target.checked ? { dir: '+x', ...ab, ativo: true } : null })} />
+        <span>Abertura na laje próxima ao pilar</span>
+        <HelpDot k="abertura" />
+      </label>
+      {ativo && (
+        <>
+          <div className="grid-3">
+            <Field label="Distância à face" helpKey="abertura" value={ab.dist} onChange={v => setAb('dist', v)}
+              onFocus={() => setFocused('abertura')} suffix="cm" />
+            <Field label="Largura tangencial" helpKey="abertura" value={ab.larg} onChange={v => setAb('larg', v)}
+              onFocus={() => setFocused('abertura')} suffix="cm" />
+            <div className="campo-grupo">
+              <label className="field-label"><span>Posição</span></label>
+              <select className="select" value={dir} onChange={e => setAb('dir', e.target.value)} onFocus={() => setFocused('abertura')}>
+                <option value="+x">eixo x, lado +</option>
+                <option value="-x">eixo x, lado −</option>
+                <option value="+y">eixo y, lado +</option>
+                <option value="-y">eixo y, lado −</option>
+              </select>
+            </div>
+          </div>
+          <div style={nota}>
+            θ entre as tangentes = <span className="mono" style={valor}>{theta !== null ? (theta * 180 / Math.PI).toFixed(2) + '°' : '—'}</span>
+            {influi === true && <> · a {ab.dist} cm &lt; 8d = {(8 * d).toFixed(1)} cm: <b>descarta-se o trecho de C′ entre as tangentes</b>.</>}
+            {influi === false && <> · a {ab.dist} cm ≥ 8d = {(8 * d).toFixed(1)} cm: a abertura não influi.</>}
           </div>
         </>
       )}
@@ -261,7 +433,7 @@ function BlocoAxial({ data, set, setFocused }) {
 }
 
 // ── Step 3: Laje e material ───────────────────────────────
-function StepLaje({ data, set, active, onActivate, setFocused, errs }) {
+function StepLaje({ data, set, active, onActivate, setFocused, errs, derived }) {
   const summary = [
     { lbl: 'h', val: `${data.h || '—'} cm` },
     { lbl: 'fck', val: `${data.fck || '—'} MPa` },
@@ -274,6 +446,7 @@ function StepLaje({ data, set, active, onActivate, setFocused, errs }) {
         <Field label="f<sub>ck</sub>" helpKey="fck" value={data.fck} onChange={v => set({ fck: v })} onFocus={() => setFocused('fck')} suffix="MPa" error={errs.fck} />
         <Field label="f<sub>yk</sub>" helpKey="fyk" value={data.fyk} onChange={v => set({ fyk: v })} onFocus={() => setFocused('fyk')} suffix="MPa" error={errs.fyk} />
       </div>
+      <BlocoAbertura data={data} set={set} setFocused={setFocused} derived={derived} />
       <div className="helper">
         <HelperLaje h={data.h} fck={data.fck} />
         <div className="lbl">
@@ -361,10 +534,11 @@ function BlocoColapso({ data, set, setFocused }) {
     larg > 0 && Number.isFinite(s) && s > 0 && area(mm) ? (larg / s) * area(mm) : null;
   const AsH = porFace(largH, cp.phi_h, cp.s_h);
   const AsV = porFace(largV, cp.phi_v, cp.s_v);
+  // 19.5.4: fyd·As,ccp ≥ 1,5·FSd, com FSd calculado com γf = 1,2
   const AsNec = Number.isFinite(data.Fsk) && data.fyk > 0
-    ? 10 * Math.abs(1.4 * data.Fsk) / (data.fyk / 1.15)
+    ? 10 * 1.5 * Math.abs(1.2 * data.Fsk) / (data.fyk / 1.15)
     : null;
-  const gov = AsH !== null && AsV !== null ? Math.min(AsH, AsV) : null;
+  const gov = AsH !== null && AsV !== null ? AsH + AsV : null;
   const passa = gov !== null && AsNec !== null ? gov >= AsNec : null;
 
   return (
@@ -384,11 +558,11 @@ function BlocoColapso({ data, set, setFocused }) {
             <Field label="c/" value={cp.s_v} onChange={v => setCp('s_v', v)} onFocus={() => setFocused('ccp')} suffix="cm" />
           </div>
           <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
-            Barras inferiores que cruzam cada face do pilar. Necessário{' '}
+            Barras inferiores que atravessam o pilar nas duas direções. Necessário{' '}
             <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>
-              A<sub>s</sub> ≥ {AsNec === null ? '—' : AsNec.toFixed(2) + ' cm²'}
+              A<sub>s,ccp</sub> ≥ {AsNec === null ? '—' : AsNec.toFixed(2) + ' cm²'}
             </span>{' '}
-            (= F<sub>Sd</sub>/f<sub>yd</sub>) · disponível por face{' '}
+            (= 1,5·F<sub>Sd</sub>/f<sub>yd</sub>, γ<sub>f</sub> = 1,2) · disponível{' '}
             <span className="mono" style={{color: passa === false ? 'var(--err)' : 'var(--blue-900)', fontWeight:600}}>
               {gov === null ? '—' : gov.toFixed(2) + ' cm²'}
             </span>
@@ -412,8 +586,9 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
   // fywd ao vivo (item 19.4.2): base 250 (estribo) ou 300 (conector) → 435 MPa
   const fywdBase = tipoArm === 'estribo' ? 250 : tipoArm === 'conector' ? 300 : null;
   const hLaje = derived?.h;
+  const aumenta = data.fywdAumento !== false;
   const fywdLive = hLaje && fywdBase
-    ? (hLaje <= 15 ? fywdBase : hLaje >= 35 ? 435 : fywdBase + (hLaje - 15) * (435 - fywdBase) / 20)
+    ? (hLaje <= 15 || !aumenta ? fywdBase : hLaje >= 35 ? 435 : fywdBase + (hLaje - 15) * (435 - fywdBase) / 20)
     : null;
 
   // Espaçamentos: limites e valores adotados
@@ -470,8 +645,20 @@ function StepStuds({ data, set, active, onActivate, setFocused, errs, derived, l
         </div>
         <div style={{fontSize: 11.5, color: 'var(--slate-600)', marginTop: 4}}>
           f<sub>ywd</sub> = <span className="mono" style={{color:'var(--blue-900)', fontWeight:600}}>{fywdLive ? fywdLive.toFixed(1) + ' MPa' : '—'}</span>
-          {' '}<HelpDot k="tipoArm" /> {fywdBase ? <>(base {fywdBase} MPa → 435 MPa conforme h)</> : <>(escolha o tipo de armadura)</>}
+          {' '}<HelpDot k="tipoArm" /> {!fywdBase ? <>(escolha o tipo de armadura)</>
+            : aumenta ? <>(base {fywdBase} MPa → 435 MPa conforme h)</> : <>(valor-base, sem aumento)</>}
         </div>
+        <label className="check-linha">
+          <input type="checkbox" checked={aumenta}
+            onChange={e => set({ fywdAumento: e.target.checked })} />
+          <span>Aumentar f<sub>ywd</sub> com a espessura da laje</span>
+          <HelpDot k="fywdAumento" />
+        </label>
+        {data.secao === 'circular' && data.abaco?.ativo && (
+          <div className="callout" style={{marginTop: 6}}>
+            Com ábaco, o app verifica os contornos C′1/C′2 mas não dimensiona armadura de punção.
+          </div>
+        )}
       </div>
       <div className="grid-3">
         <Field

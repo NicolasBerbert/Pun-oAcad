@@ -17,6 +17,8 @@ const CASO_REFERENCIA = {
   u3_manual: null,
   axial: null,
   ccp: null,
+  // o exercício verifica o contorno C só com a força
+  momentoC: false,
 };
 
 async function carregarCasoReferencia(win) {

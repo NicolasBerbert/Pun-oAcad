@@ -9,3 +9,8 @@ smoke*.png
 ui-novidades.png
 teste-memorial.pdf
 novidades.pdf
+
+# material de referência solto na raiz: a norma (cópia com licença de uso),
+# apresentações e estudos. Os casos versionados ficam em things/.
+/*.pdf
+/*.pptx

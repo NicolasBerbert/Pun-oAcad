@@ -770,6 +770,12 @@ sup { font-size: 0.72em; vertical-align: 0.55em; }
 }
 .verif-line .cond { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .verif-line .msg { margin-left: auto; font-weight: 600; }
+
+/* contornos do ábaco (C′1, C′2) dentro da etapa 7 */
+.contorno-abaco {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-top: 10px; border-top: 1px solid var(--line);
+}
 .verif-line.ok  { background: var(--ok-bg);  border-color: var(--ok-bd);  color: var(--ok); }
 .verif-line.err { background: var(--err-bg); border-color: var(--err-bd); color: var(--err); }
 

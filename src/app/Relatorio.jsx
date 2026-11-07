@@ -112,6 +112,8 @@ function Relatorio({ R, projectName }) {
               ['Espessura da laje h', ri(I.h), 'cm'],
               ['Cobrimento nominal', ri(I.cobrimento), 'cm'],
               ['Malha externa (topo)', 'direção ' + R.camadaExterna],
+              R.abaco && ['Ábaco: h<sub>c</sub> · L<sub>t</sub> em planta', ri(R.abaco.hc) + ' · ' + rf(R.abaco.Lt, 1), 'cm'],
+              R.abertura && ['Abertura: distância · largura', ri(R.abertura.dist) + ' · ' + ri(R.abertura.larg) + ' (eixo ' + R.abertura.dir + ')', 'cm'],
             ]} />
             <h3>Materiais</h3>
             <RelTab linhas={[
@@ -131,6 +133,12 @@ function Relatorio({ R, projectName }) {
               ['Força de punção F<sub>sk</sub>', ri(I.Fsk), 'kN'],
               ['Momento M<sub>k1x</sub>', ri(I.Mxk), 'kN·cm'],
               ['Momento M<sub>k1y</sub>', ri(I.Myk), 'kN·cm'],
+              R.reducao && ['Carga distribuída g + q', ri(I.distrib.gq), 'kN/m²'],
+            ]} />
+            <h3>Opções de verificação</h3>
+            <RelTab linhas={[
+              ['Momentos no contorno C', R.momentoC ? 'sim' : 'não'],
+              ['τ<sub>Rd2</sub> ampliado em 20%', R.ampliaRd2 ? 'sim' : R.ampliaPedida ? 'não (abertura junto ao pilar)' : 'não'],
             ]} />
             <h3>Coeficientes parciais</h3>
             <RelTab linhas={[
@@ -176,21 +184,70 @@ function Relatorio({ R, projectName }) {
         {R.circ ? (
           <>
             <RelEq lhs={<>u<sub>1</sub></>} sym={<>π·Ø</>} sub={'π·' + ri(R.D)} res={rf(R.u1)} unit="cm" />
-            <RelEq lhs={<>u<sub>2</sub></>} sym={<>π·(Ø + 4d)</>}
-              sub={'π·(' + ri(R.D) + ' + 4·' + rf(R.d) + ')'} res={rf(R.u2)} unit="cm" />
+            {!R.abaco && (
+              <RelEq lhs={<>u<sub>2</sub></>} sym={<>π·(Ø + 4d)</>}
+                sub={'π·(' + ri(R.D) + ' + 4·' + rf(R.d) + ')'} res={rf(R.u2_bruto)} unit="cm" />
+            )}
+            {R.momentoC && (
+              <RelEq lhs={<>W<sub>p0</sub></>} sym={<>Ø² (contorno C)</>} sub={ri(R.D) + '²'} res={rf(R.Wp0x, 0)} unit="cm²" />
+            )}
           </>
         ) : (
           <>
             <RelEq lhs={<>u<sub>1</sub></>} sym={<>2·(C<sub>1</sub> + C<sub>2</sub>)</>}
               sub={'2·(' + ri(R.cC1) + ' + ' + ri(R.cC2) + ')'} res={rf(R.u1)} unit="cm" />
-            <RelEq lhs={<>u<sub>2</sub></>} sym={<>2·(C<sub>1</sub> + C<sub>2</sub>) + 4π·d</>}
-              sub={rf(R.u1) + ' + 4π·' + rf(R.d)} res={rf(R.u2)} unit="cm" />
+            {!R.abaco && (
+              <RelEq lhs={<>u<sub>2</sub></>} sym={<>2·(C<sub>1</sub> + C<sub>2</sub>) + 4π·d</>}
+                sub={rf(R.u1) + ' + 4π·' + rf(R.d)} res={rf(R.u2_bruto)} unit="cm" />
+            )}
+            {R.momentoC && (
+              <RelTab linhas={[
+                ['W<sub>p0,x</sub> = C<sub>1</sub>²/2 + C<sub>1</sub>C<sub>2</sub> (contorno C)', rf(R.Wp0x, 1), 'cm²'],
+                ['W<sub>p0,y</sub> = C<sub>2</sub>²/2 + C<sub>1</sub>C<sub>2</sub> (contorno C)', rf(R.Wp0y, 1), 'cm²'],
+              ]} />
+            )}
+          </>
+        )}
+        {R.abertura && (
+          <>
+            <p className="rel-nota">
+              Abertura a {ri(R.abertura.dist)} cm da face {R.abertura.influi ? '<' : '≥'} 8d = {rf(R.abertura.lim8d, 1)} cm
+              {R.abertura.influi
+                ? ': descarta-se o trecho dos contornos críticos entre as retas que passam pelo centro do pilar e tangenciam a abertura (19.5.2.6). O contorno C fica integral.'
+                : ': a abertura não influi no cálculo.'}
+              {R.abertura.influi && (R.abertura.limitaFaixa
+                ? ' A abertura corta a faixa de ρ, mas ρ = As/(s·d) não depende da largura da faixa.'
+                : ' 3d = ' + rf(3 * R.d) + ' cm: a abertura não limita a faixa de ρ.')}
+            </p>
+            {R.abertura.influi && (
+              <RelEq lhs="θ" sym={<>2·arctan((b/2)/x<sub>1</sub>)</>}
+                sub={'2·arctan(' + rf(R.abertura.larg / 2, 1) + '/' + rf(R.abertura.x1, 1) + ')'}
+                res={rf(R.abertura.theta * 180 / Math.PI) + '°'} />
+            )}
+            {R.abertura.influi && !R.abaco && (
+              <RelEq lhs={<>u<sub>2</sub></>} sym={<>u<sub>2,integral</sub> − Δu</>}
+                sub={rf(R.u2_bruto) + ' − ' + rf(R.du2)} res={rf(R.u2)} unit="cm" />
+            )}
+          </>
+        )}
+        {R.abaco && (
+          <>
+            <h3>Ábaco (19.5.2.5)</h3>
+            <RelEq lhs={<>d<sub>c</sub></>} sym={<>(d<sub>cx</sub> + d<sub>cy</sub>)/2</>}
+              sub={'(' + rf(R.abaco.dcx, 3) + ' + ' + rf(R.abaco.dcy, 3) + ')/2'} res={rf(R.abaco.dc)} unit="cm" />
+            <p className="rel-nota">
+              ℓ<sub>c</sub> = (L<sub>t</sub> − Ø)/2 = {rf(R.abaco.lc, 1)} cm; 2(d<sub>c</sub> − d) = {rf(R.abaco.lim1)} cm; 2d<sub>c</sub> = {rf(R.abaco.lim2)} cm
+              → verificar {R.abaco.caso === 'C2' ? 'apenas C′2' : R.abaco.caso === 'C1' ? 'apenas C′1' : 'C′1 e C′2'}.
+              C′2 fica 2d além da borda do ábaco; C′1 fica 2d<sub>c</sub> além da face do pilar
+              {R.abaco.da !== null && <>, com d<sub>a</sub> = {rf(R.abaco.da)} cm</>}. W<sub>p</sub> é calculado para o próprio contorno.
+            </p>
           </>
         )}
         {R.etapa9 && (
           <RelEq lhs={<>u<sub>3</sub></>}
-            sym={R.etapa9.u3manual ? <>perímetro medido em CAD</> : <>u<sub>1</sub> + 2π·(2d + p)</>}
-            sub={R.etapa9.u3manual ? null : rf(R.u1) + ' + 2π·(2·' + rf(R.d) + ' + ' + rf(R.etapa9.p) + ')'}
+            sym={R.etapa9.u3manual ? <>perímetro medido em CAD</> : <>u<sub>1</sub> + 2π·(2d + p){R.etapa9.du3 > 0 && <> − Δu</>}</>}
+            sub={R.etapa9.u3manual ? null : rf(R.u1) + ' + 2π·(2·' + rf(R.d) + ' + ' + rf(R.etapa9.p) + ')'
+              + (R.etapa9.du3 > 0 ? ' − ' + rf(R.etapa9.du3) : '')}
             res={rf(R.etapa9.u3)} unit="cm" />
         )}
       </RelSecao>
@@ -198,18 +255,22 @@ function Relatorio({ R, projectName }) {
       {/* ── 4 ── */}
       <RelSecao n="4" titulo="Resistência de cálculo da armadura de punção" cite="19.4.2">
         <p className="rel-nota">
-          f<sub>ywd</sub> depende apenas da espessura da laje, em três situações:
-          h &lt; 15 cm → 250 MPa; 15 ≤ h ≤ 35 cm → interpolação linear; h &gt; 35 cm → 435 MPa.
+          f<sub>ywd</sub> parte de {R.fywdBase} MPa para {R.tipoArm === 'conector' ? 'conectores' : 'estribos'} e
+          varia com a espessura da laje, em três situações:
+          h &lt; 15 cm → {R.fywdBase} MPa; 15 ≤ h ≤ 35 cm → interpolação linear; h &gt; 35 cm → 435 MPa.
         </p>
-        {R.fywdCaso === 'menor' ? (
-          <RelEq lhs={<>f<sub>ywd</sub></>} sym={<>250 MPa, pois h = {ri(I.h)} cm &lt; 15 cm</>}
+        {R.fywdCaso === 'base' ? (
+          <RelEq lhs={<>f<sub>ywd</sub></>} sym={<>{R.fywdBase} MPa, sem o aumento com a espessura (a favor da segurança)</>}
+            res={rf(R.fywd, 1)} unit="MPa" />
+        ) : R.fywdCaso === 'menor' ? (
+          <RelEq lhs={<>f<sub>ywd</sub></>} sym={<>{R.fywdBase} MPa, pois h = {ri(I.h)} cm &lt; 15 cm</>}
             res={rf(R.fywd, 1)} unit="MPa" />
         ) : R.fywdCaso === 'maior' ? (
           <RelEq lhs={<>f<sub>ywd</sub></>} sym={<>435 MPa, pois h = {ri(I.h)} cm &gt; 35 cm</>}
             res={rf(R.fywd, 1)} unit="MPa" />
         ) : (
-          <RelEq lhs={<>f<sub>ywd</sub></>} sym={<>250 + (h − 15)·(435 − 250)/(35 − 15)</>}
-            sub={'250 + (' + ri(I.h) + ' − 15)·185/20'} res={rf(R.fywd, 1)} unit="MPa" />
+          <RelEq lhs={<>f<sub>ywd</sub></>} sym={<>{R.fywdBase} + (h − 15)·(435 − {R.fywdBase})/(35 − 15)</>}
+            sub={R.fywdBase + ' + (' + ri(I.h) + ' − 15)·' + (435 - R.fywdBase) + '/20'} res={rf(R.fywd, 1)} unit="MPa" />
         )}
       </RelSecao>
 
@@ -244,9 +305,26 @@ function Relatorio({ R, projectName }) {
         <RelEq lhs={<>α<sub>v</sub></>} sym={<>1 − f<sub>ck</sub>/250</>}
           sub={'1 − ' + ri(I.fck) + '/250'} res={rf(R.alphaV, 3)} />
         <RelEq lhs={<>τ<sub>Rd2</sub></>} sym={<>0,27·α<sub>v</sub>·f<sub>cd</sub></>}
-          sub={'0,27 · ' + rf(R.alphaV, 3) + ' · ' + rf(R.fcd)} res={rf(R.tauRd2)} unit="MPa" />
-        <RelEq lhs={<>τ<sub>Sd</sub></>} sym={<>F<sub>sd</sub>/(u<sub>1</sub>·d)</>}
-          sub={rf(R.Fsd, 1) + '/(' + rf(R.u1) + ' · ' + rf(R.d) + ')'} res={rf(R.tauSd_C)} unit="MPa" />
+          sub={'0,27 · ' + rf(R.alphaV, 3) + ' · ' + rf(R.fcd)} res={rf(R.tauRd2_base)} unit="MPa" />
+        {R.ampliaRd2 && (
+          <RelEq lhs={<>τ<sub>Rd2</sub></>} sym={<>1,2·0,27·α<sub>v</sub>·f<sub>cd</sub></>}
+            sub={'1,2 · ' + rf(R.tauRd2_base)} res={rf(R.tauRd2)} unit="MPa" />
+        )}
+        <p className="rel-nota">
+          τ<sub>Sd</sub> conforme 19.5.2 com u<sub>0</sub> no lugar de u
+          {R.abaco && <>, com a altura útil d<sub>c</sub> = {rf(R.dC)} cm na face do pilar</>}
+          {R.momentoC ? '; os momentos entram com o Wp do contorno C.' : '; por opção do projetista, sem a parcela dos momentos.'}
+          {R.ampliaPedida && !R.ampliaRd2 && ' Ampliação de 20% de τRd2 não aplicada: há abertura junto ao pilar.'}
+        </p>
+        {R.momentoC ? (
+          <RelEq lhs={<>τ<sub>Sd</sub></>}
+            sym={<>F<sub>sd</sub>/(u<sub>1</sub>d) + k<sub>x</sub>M<sub>sd1x</sub>/(W<sub>p0,x</sub>d) + k<sub>y</sub>M<sub>sd1y</sub>/(W<sub>p0,y</sub>d)</>}
+            sub={rf(R.tauSd_C_F, 3) + ' + ' + rf(R.tauSd_C_Mx, 3) + ' + ' + rf(R.tauSd_C_My, 3)}
+            res={rf(R.tauSd_C)} unit="MPa" />
+        ) : (
+          <RelEq lhs={<>τ<sub>Sd</sub></>} sym={<>F<sub>sd</sub>/(u<sub>1</sub>·d)</>}
+            sub={rf(R.Fsd, 1) + '/(' + rf(R.u1) + ' · ' + rf(R.dC) + ')'} res={rf(R.tauSd_C)} unit="MPa" />
+        )}
         <RelVerif ok={R.verif1}
           cond={<>τ<sub>Sd</sub> = {rf(R.tauSd_C)} {R.verif1 ? '≤' : '>'} τ<sub>Rd2</sub> = {rf(R.tauRd2)} MPa</>}
           texto={R.verif1
@@ -255,24 +333,21 @@ function Relatorio({ R, projectName }) {
       </RelSecao>
 
       {/* ── 7 ── */}
-      <RelSecao n="7" titulo="Superfície crítica C′ — sem armadura de punção" cite="19.5.3.2">
+      <RelSecao n="7" titulo={R.abaco ? 'Superfícies críticas do ábaco — sem armadura de punção' : 'Superfície crítica C′ — sem armadura de punção'}
+        cite={R.abaco ? '19.5.2.5 · 19.5.3.2' : '19.5.3.2'}>
         <RelDuplo>
           <RelTab linhas={R.circ ? [
             ['K (pilar circular interno)', rf(R.kx, 2)],
-            ['W<sub>p</sub> = (Ø + 4d)²', rf(R.Wpx), 'cm²'],
+            !R.abaco && ['W<sub>p</sub> = (Ø + 4d)²', rf(R.Wpx_bruto), 'cm²'],
           ] : [
             ['k<sub>x</sub> (C₁/C₂ = ' + rf(R.cC1 / R.cC2) + ')', rf(R.kx, 4)],
             ['k<sub>y</sub> (C₂/C₁ = ' + rf(R.cC2 / R.cC1) + ')', rf(R.ky, 4)],
           ]} />
-          <RelTab linhas={R.circ ? [] : [
-            ['W<sub>px</sub>', rf(R.Wpx), 'cm²'],
-            ['W<sub>py</sub>', rf(R.Wpy), 'cm²'],
+          <RelTab linhas={R.circ || R.abaco ? [] : [
+            ['W<sub>px</sub>', rf(R.Wpx_bruto), 'cm²'],
+            ['W<sub>py</sub>', rf(R.Wpy_bruto), 'cm²'],
           ]} />
         </RelDuplo>
-        <RelEq lhs={<>τ<sub>Sd</sub></>}
-          sym={<>F<sub>sd</sub>/(u<sub>2</sub>d) + k<sub>x</sub>M<sub>sd1x</sub>/(W<sub>px</sub>d) + k<sub>y</sub>M<sub>sd1y</sub>/(W<sub>py</sub>d)</>}
-          sub={rf(R.tauSd_Cl_F) + ' + ' + rf(R.tauSd_Cl_Mx) + ' + ' + rf(R.tauSd_Cl_My)}
-          res={rf(R.tauSd_Cl)} unit="MPa" />
         {R.temAxial && (
           <>
             <RelTab linhas={[
@@ -281,31 +356,82 @@ function Relatorio({ R, projectName }) {
             ]} />
             <RelEq lhs={<>σ<sub>cp</sub></>} sym={<>(σ<sub>cp,x</sub> + σ<sub>cp,y</sub>)/2 ≤ 3,5 MPa</>}
               sub={'(' + rf(R.sigma_cpx, 3) + ' + ' + rf(R.sigma_cpy, 3) + ')/2'}
-              res={rf(R.sigma_cp, 3)} unit="MPa" />
+              res={rf(R.sigma_cp_calc, 3)} unit="MPa" />
+            {R.sigma_cp_desprezado && (
+              <p className="rel-nota">
+                σ<sub>cp,x</sub> ou σ<sub>cp,y</sub> ≤ 1 MPa: efeito favorável desprezado (19.5.3.2), σ<sub>cp</sub> = 0.
+              </p>
+            )}
           </>
         )}
-        <RelEq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/d) ; 2)</>}
-          sub={'mín(' + rf(R.fator_d_bruto, 4) + ' ; 2)'} res={rf(R.fator_d, 4)} />
-        {R.ke_limitado && (
-          <p className="rel-nota">
-            Coeficiente de escala calculado {rf(R.fator_d_bruto, 4)}, truncado no limite k<sub>e</sub> ≤ 2.
-          </p>
+        {R.abaco ? R.abaco.contornos.map(c => (
+          <div key={c.nome}>
+            <h3>{c.nome} — {c.nome === 'C′1' ? 'dentro do ábaco, junto ao pilar' : 'na laje, além da borda do ábaco'}</h3>
+            <RelTab linhas={[
+              ['u', rf(c.u), 'cm'],
+              ['W<sub>px</sub> · W<sub>py</sub>', rf(c.Wpx, 0) + ' · ' + rf(c.Wpy, 0), 'cm²'],
+              ['altura útil', rf(c.d), 'cm'],
+              c.dF > 0 && ['F<sub>Sd,red</sub>', rf(c.Fsd_red), 'kN'],
+            ]} />
+            <RelEq lhs={<>τ<sub>Sd</sub></>} sym={<>parcelas da força e dos momentos</>}
+              sub={rf(c.tauSd_F, 3) + ' + ' + rf(c.tauSd_Mx, 3) + ' + ' + rf(c.tauSd_My, 3)}
+              res={rf(c.tauSd, 3)} unit="MPa" />
+            <RelEq lhs={<>τ<sub>Rd1</sub></>} sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup></>}
+              sub={'0,13 · ' + rf(c.ke, 3) + ' · (100 · ' + r5(R.rho) + ' · ' + ri(I.fck) + ')^(1/3)'}
+              res={rf(c.tauRd1, 3)} unit="MPa" />
+            <RelVerif ok={c.ok}
+              cond={<>τ<sub>Sd</sub> = {rf(c.tauSd, 3)} {c.ok ? '≤' : '>'} τ<sub>Rd1</sub> = {rf(c.tauRd1, 3)} MPa</>}
+              texto={c.ok ? 'o concreto resiste neste contorno' : 'contorno não atendido'} />
+          </div>
+        )) : (
+          <>
+            {R.abertura?.influi && (
+              <p className="rel-nota">
+                Sem o trecho entre as tangentes: u<sub>2</sub> = {rf(R.u2)} cm, W<sub>px</sub> = {rf(R.Wpx)} e
+                W<sub>py</sub> = {rf(R.Wpy)} cm².
+              </p>
+            )}
+            {R.reducao && (
+              <>
+                <RelEq lhs="ΔF" sym={<>p<sub>d</sub>·A<sub>C′</sub></>}
+                  sub={rf(R.reducao.pd) + ' · ' + rf(R.reducao.area, 3)} res={rf(R.reducao.dF)} unit="kN" />
+                <RelEq lhs={<>F<sub>Sd,red</sub></>} sym={<>F<sub>Sd</sub> − ΔF</>}
+                  sub={rf(Math.abs(R.Fsd)) + ' − ' + rf(R.reducao.dF)} res={rf(R.reducao.Fsd_red)} unit="kN" />
+              </>
+            )}
+            <RelEq lhs={<>τ<sub>Sd</sub></>}
+              sym={<>F<sub>sd{R.reducao ? ',red' : ''}</sub>/(u<sub>2</sub>d) + k<sub>x</sub>M<sub>sd1x</sub>/(W<sub>px</sub>d) + k<sub>y</sub>M<sub>sd1y</sub>/(W<sub>py</sub>d)</>}
+              sub={rf(R.tauSd_Cl_F, 3) + ' + ' + rf(R.tauSd_Cl_Mx, 3) + ' + ' + rf(R.tauSd_Cl_My, 3)}
+              res={rf(R.tauSd_Cl, 3)} unit="MPa" />
+            {R.reducao && (
+              <p className="rel-nota">Sem a redução de F<sub>Sd</sub> (19.5.2.1), τ<sub>Sd</sub> = {rf(R.reducao.tauSd_sem, 3)} MPa.</p>
+            )}
+            <RelEq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/d) ; 2)</>}
+              sub={'mín(' + rf(R.fator_d_bruto, 4) + ' ; 2)'} res={rf(R.fator_d, 4)} />
+            {R.ke_limitado && (
+              <p className="rel-nota">
+                Coeficiente de escala calculado {rf(R.fator_d_bruto, 4)}, truncado no limite k<sub>e</sub> ≤ 2.
+              </p>
+            )}
+            <RelEq lhs={<>τ<sub>Rd1</sub></>} sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
+              sub={'0,13 · ' + rf(R.fator_d, 4) + ' · (100 · ' + r5(R.rho) + ' · ' + ri(I.fck) + ')^(1/3)'
+                    + (R.temAxial ? ' + 0,10 · ' + rf(R.sigma_cp, 3) : '')}
+              res={rf(R.tauRd1, 4)} unit="MPa" />
+            <RelVerif ok={R.verif2}
+              cond={<>τ<sub>Sd</sub> = {rf(R.tauSd_Cl, 3)} {R.verif2 ? '≤' : '>'} τ<sub>Rd1</sub> = {rf(R.tauRd1, 3)} MPa</>}
+              texto={R.verif2
+                ? 'o concreto resiste sozinho: dispensa armadura de punção'
+                : 'a ligação exige armadura de punção'} />
+          </>
         )}
-        <RelEq lhs={<>τ<sub>Rd1</sub></>} sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
-          sub={'0,13 · ' + rf(R.fator_d, 4) + ' · (100 · ' + r5(R.rho) + ' · ' + ri(I.fck) + ')^(1/3)'
-                + (R.temAxial ? ' + 0,10 · ' + rf(R.sigma_cp, 3) : '')}
-          res={rf(R.tauRd1, 4)} unit="MPa" />
-        <RelVerif ok={R.verif2}
-          cond={<>τ<sub>Sd</sub> = {rf(R.tauSd_Cl)} {R.verif2 ? '≤' : '>'} τ<sub>Rd1</sub> = {rf(R.tauRd1)} MPa</>}
-          texto={R.verif2
-            ? 'o concreto resiste sozinho: dispensa armadura de punção'
-            : 'a ligação exige armadura de punção'} />
       </RelSecao>
 
       {/* ── 8 ── */}
       <RelSecao n="8" titulo="Superfície crítica C′ — com armadura de punção" cite="19.5.3.3">
         {!R.precisaArm && !temArm ? (
           <p className="rel-nota">Não aplicável: o contorno C′ é atendido sem armadura de punção.</p>
+        ) : R.abaco ? (
+          <p className="rel-nota">Não avaliado: com ábaco, o app não dimensiona armadura de punção.</p>
         ) : !temArm ? (
           <p className="rel-nota">Armadura de punção necessária, porém ainda não definida neste caso.</p>
         ) : (
@@ -384,20 +510,23 @@ function Relatorio({ R, projectName }) {
       {R.colapso && !R.colapso.incompleto && (
         <RelSecao n="10" titulo="Colapso progressivo" cite="19.5.4">
           <p className="rel-nota">
-            Rompida a ligação por punção, a armadura de flexão inferior que atravessa o
-            contorno C precisa suspender a força sozinha: ΣA<sub>s</sub>·f<sub>yd</sub> ≥ F<sub>Sd</sub>,
-            somando as barras que cruzam cada face do pilar. A face com menos aço governa.
+            A armadura de flexão inferior que atravessa o contorno C deve atender
+            f<sub>yd</sub>·A<sub>s,ccp</sub> ≥ 1,5·F<sub>Sd</sub>, com F<sub>Sd</sub> calculado com γ<sub>f</sub> = 1,2,
+            e estar ancorada além do contorno C′. Cada barra contínua que atravessa o pilar é
+            contada uma vez, a favor da segurança.
           </p>
-          <RelEq lhs={<>A<sub>s,nec</sub></>} sym={<>F<sub>Sd</sub>/f<sub>yd</sub></>}
-            sub={rf(Math.abs(R.Fsd)) + ' / ' + rf(R.fyd / 10, 3)}
+          <RelEq lhs={<>F<sub>Sd</sub></>} sym={<>1,2·F<sub>Sk</sub></>}
+            sub={'1,2 · ' + ri(Math.abs(I.Fsk))} res={rf(R.colapso.Fsd_ccp, 1)} unit="kN" />
+          <RelEq lhs={<>A<sub>s,ccp,nec</sub></>} sym={<>1,5·F<sub>Sd</sub>/f<sub>yd</sub></>}
+            sub={'1,5 · ' + rf(R.colapso.Fsd_ccp, 1) + ' / ' + rf(R.fyd / 10, 3)}
             res={rf(R.colapso.As_nec)} unit="cm²" />
           <RelTab linhas={[
-            ['barras horizontais (dir. x) — Ø' + ri(R.colapso.phi_h) + ' c/ ' + rf(R.colapso.s_h) + ' cm', rf(R.colapso.As_h), 'cm²/face'],
-            ['barras verticais (dir. y) — Ø' + ri(R.colapso.phi_v) + ' c/ ' + rf(R.colapso.s_v) + ' cm', rf(R.colapso.As_v), 'cm²/face'],
-            ['face crítica', rf(R.colapso.As_gov), 'cm²'],
+            ['barras em x — Ø' + ri(R.colapso.phi_h) + ' c/ ' + rf(R.colapso.s_h) + ' cm (' + rf(R.colapso.nh_exato) + ' barras)', rf(R.colapso.As_h), 'cm²'],
+            ['barras em y — Ø' + ri(R.colapso.phi_v) + ' c/ ' + rf(R.colapso.s_v) + ' cm (' + rf(R.colapso.nv_exato) + ' barras)', rf(R.colapso.As_v), 'cm²'],
+            ['A<sub>s,ccp</sub>', rf(R.colapso.As_ccp), 'cm²'],
           ]} />
           <RelVerif ok={R.colapso.verif5}
-            cond={<>ΣA<sub>s</sub>·f<sub>yd</sub> = {rf(R.colapso.Rd)} {R.colapso.verif5 ? '≥' : '<'} F<sub>Sd</sub> = {rf(Math.abs(R.Fsd))} kN</>}
+            cond={<>f<sub>yd</sub>·A<sub>s,ccp</sub> = {rf(R.colapso.Rd)} {R.colapso.verif5 ? '≥' : '<'} 1,5·F<sub>Sd</sub> = {rf(R.colapso.Sd)} kN</>}
             texto={R.colapso.verif5
               ? 'a armadura inferior garante a proteção contra colapso progressivo'
               : 'armadura inferior insuficiente contra colapso progressivo'} />
@@ -419,7 +548,8 @@ function Relatorio({ R, projectName }) {
               <td>{R.verif1 ? 'Atende' : 'Não atende'}</td>
             </tr>
             <tr className={R.verif2 ? 'ok' : 'nao'}>
-              <td>C′</td><td>Sem armadura de punção</td>
+              <td>{R.abaco ? R.abaco.governa : 'C′'}</td>
+              <td>{R.abaco ? 'Ábaco — contorno mais solicitado' : 'Sem armadura de punção'}</td>
               <td>{rf(R.tauSd_Cl)} MPa</td><td>{rf(R.tauRd1)} MPa</td>
               <td>{R.verif2 ? 'Atende' : 'Exige armadura'}</td>
             </tr>
@@ -438,7 +568,7 @@ function Relatorio({ R, projectName }) {
             {R.colapso && !R.colapso.incompleto && (
               <tr className={R.colapso.verif5 ? 'ok' : 'nao'}>
                 <td>C</td><td>Colapso progressivo</td>
-                <td>{rf(Math.abs(R.Fsd))} kN</td>
+                <td>{rf(R.colapso.Sd)} kN</td>
                 <td>{rf(R.colapso.Rd)} kN</td>
                 <td>{R.colapso.verif5 ? 'Atende' : 'Não atende'}</td>
               </tr>
@@ -464,6 +594,16 @@ function textoConclusao(R, temArm) {
       + 'pilar. A ligação é inviável na configuração atual, independentemente da armadura de punção — é '
       + 'necessário aumentar a seção do pilar, a espessura da laje ou a resistência do concreto.';
   }
+  if (R.abaco) {
+    const nomes = R.abaco.contornos.map(c => c.nome).join(' e ');
+    return R.verif2
+      ? 'A ligação com ábaco atende à punção sem armadura específica: o contorno C não apresenta '
+        + 'esmagamento da biela e ' + (R.abaco.contornos.length > 1 ? 'os contornos ' : 'o contorno ') + nomes
+        + ' exigido' + (R.abaco.contornos.length > 1 ? 's' : '') + ' pelo item 19.5.2.5 '
+        + (R.abaco.contornos.length > 1 ? 'são atendidos.' : 'é atendido.')
+      : 'O contorno ' + R.abaco.governa + ' do ábaco não é atendido. O app não dimensiona armadura de '
+        + 'punção com ábaco: aumente o ábaco, a espessura da laje ou a resistência do concreto.';
+  }
   if (R.verif2) {
     return 'A ligação laje-pilar atende à punção sem necessidade de armadura específica: a tensão '
       + 'solicitante no contorno crítico C′ é inferior à resistente e o contorno C não apresenta '
@@ -482,8 +622,8 @@ function textoConclusao(R, temArm) {
   const okCcp = !temCcp || R.colapso.verif5;
 
   const alerta = temCcp && !R.colapso.verif5
-    ? ' A armadura inferior contra colapso progressivo, porém, é insuficiente: a face crítica '
-      + 'oferece ' + rf(R.colapso.As_gov) + ' cm² e são necessários ' + rf(R.colapso.As_nec)
+    ? ' A armadura inferior contra colapso progressivo, porém, é insuficiente: há '
+      + rf(R.colapso.As_ccp) + ' cm² e são necessários ' + rf(R.colapso.As_nec)
       + ' cm² (item 19.5.4).'
     : '';
 

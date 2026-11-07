@@ -198,9 +198,13 @@ function rebuild(s, data, layers, highlight) {
   const _h = h || 20;
   const _d = d || (_h - (cobrimento || 2.5) - 1.5);
 
+  // ábaco (só pilar circular): engrossamento da laje junto ao pilar, Lt × Lt
+  const ab = data.abaco;
+  const temAbaco = secao === 'circular' && ab?.ativo && ab.hc > _h && ab.Lt > (diam || 0);
+
   // slab — a "tile" of slab around the column (visualization piece)
-  const slabW = Math.max(180, (_C1 + 8 * _d));
-  const slabL = Math.max(180, (_C2 + 8 * _d));
+  const slabW = Math.max(180, (_C1 + 8 * _d), temAbaco ? ab.Lt + 8 * _d : 0);
+  const slabL = Math.max(180, (_C2 + 8 * _d), temAbaco ? ab.Lt + 8 * _d : 0);
   const slabT = _h;
 
   if (layers.concreto) {
@@ -220,6 +224,24 @@ function rebuild(s, data, layers, highlight) {
     const slabEdges = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x6b7280, transparent: true, opacity: 0.45 }));
     slabEdges.position.copy(slab.position);
     slabGroup.add(slabEdges);
+
+    // o pilar sobe acima da laje nesta vista, e o ábaco fica do mesmo lado
+    if (temAbaco) {
+      const t = ab.hc - _h;
+      const abGeom = new THREE.BoxGeometry(ab.Lt, t, ab.Lt);
+      // um tom mais escuro que a laje, para o ábaco se destacar dela
+      const abMat = new THREE.MeshPhysicalMaterial({
+        color: 0xb9c0cb, roughness: 0.85, metalness: 0.0,
+        transparent: true, opacity: 0.7, side: THREE.DoubleSide,
+      });
+      const abMesh = new THREE.Mesh(abGeom, abMat);
+      abMesh.position.set(0, slabT + t / 2, 0);
+      slabGroup.add(abMesh);
+      const abEdges = new THREE.LineSegments(new THREE.EdgesGeometry(abGeom),
+        new THREE.LineBasicMaterial({ color: 0x3b465a, transparent: true, opacity: 0.85 }));
+      abEdges.position.copy(abMesh.position);
+      slabGroup.add(abEdges);
+    }
   }
 
   // column (rises above the slab)

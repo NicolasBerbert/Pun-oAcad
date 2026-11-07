@@ -77,6 +77,55 @@ function baixarDXF(R, nome) {
   });
 }
 
+// Um contorno do ábaco (C′1 ou C′2): perímetro, Wp, redução de FSd,
+// τSd, ke e τRd1 com a altura útil desse contorno.
+function ContornoAbaco({ c, R }) {
+  const I = R.inputs;
+  const um = c.nome === 'C′1';
+  const raio = R.circ ? c.b1 / 2 + c.a : null;
+  return (
+    <div className="contorno-abaco">
+      <div className="subhead">{c.nome} — {um ? <>2d<sub>c</sub> além da face do pilar</> : <>2d além da borda do ábaco</>}</div>
+      {R.circ ? (
+        <>
+          <Eq lhs="R" sym={um ? <>Ø/2 + 2d<sub>c</sub></> : <>Ø/2 + ℓ<sub>c</sub> + 2d</>}
+            sub={um ? `${fmt(R.D / 2, 1)} + 2·${fmt(R.abaco.dc)}` : `${fmt(R.D / 2, 1)} + ${fmt(R.abaco.lc, 1)} + 2·${fmt(R.d)}`}
+            res={fmt(raio)} unit="cm" />
+          <Eq lhs="u" sym="2π·R" res={fmt(c.u_bruto)} unit="cm" />
+          <Eq lhs={<>W<sub>p</sub></>} sym="(2R)²" res={fmt(c.Wpx_bruto, 0)} unit="cm²" />
+        </>
+      ) : (
+        <KV rows={[
+          ['u', fmt(c.u_bruto), 'cm'],
+          ['W<sub>px</sub> · W<sub>py</sub>', `${fmt(c.Wpx_bruto, 0)} · ${fmt(c.Wpy_bruto, 0)}`, 'cm²'],
+        ]} />
+      )}
+      {c.du > 0 && (
+        <div className="muted" style={{fontSize: 12}}>
+          Sem o trecho da abertura: u = {fmt(c.u)} cm, W<sub>px</sub> = {fmt(c.Wpx, 0)}, W<sub>py</sub> = {fmt(c.Wpy, 0)} cm².
+        </div>
+      )}
+      {c.dF > 0 && (
+        <Eq lhs={<>F<sub>Sd,red</sub></>} sym={<>F<sub>Sd</sub> − p<sub>d</sub>·A</>}
+          sub={`${fmt(Math.abs(R.Fsd))} − ${fmt(R.reducao ? R.reducao.pd : 0)}·${fmt(c.area / 1e4, 3)}`}
+          res={fmt(c.Fsd_red)} unit="kN" />
+      )}
+      <Eq lhs={<>τ<sub>Sd</sub></>}
+        sym={<>F<sub>sd</sub>/(u·{um ? <>d<sub>a</sub></> : 'd'}) + k<sub>x</sub>M<sub>sd1x</sub>/(W<sub>px</sub>·{um ? <>d<sub>a</sub></> : 'd'}) + k<sub>y</sub>M<sub>sd1y</sub>/(W<sub>py</sub>·{um ? <>d<sub>a</sub></> : 'd'})</>}
+        sub={`${fmt(c.tauSd_F, 3)} + ${fmt(c.tauSd_Mx, 3)} + ${fmt(c.tauSd_My, 3)}`}
+        res={fmt(c.tauSd, 3)} unit="MPa" />
+      <Eq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/{um ? <>d<sub>a</sub></> : 'd'}) ; 2)</>}
+        sub={`mín(${fmt(c.ke_bruto, 3)} ; 2)`} res={fmt(c.ke, 3)} />
+      <Eq lhs={<>τ<sub>Rd1</sub></>}
+        sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
+        sub={`0,13·${fmt(c.ke, 3)}·(100·${R.rho.toFixed(5)}·${I.fck})^(1/3)`} res={fmt(c.tauRd1, 3)} unit="MPa" />
+      <Verif ok={c.ok}
+        cond={<>τ<sub>Sd</sub> = {fmt(c.tauSd, 3)} {c.ok ? '≤' : '>'} τ<sub>Rd1</sub> = {fmt(c.tauRd1, 3)} MPa</>}
+        okMsg={`Perímetro ${c.nome} OK!`} errMsg={`Perímetro ${c.nome} não atende!`} />
+    </div>
+  );
+}
+
 function Results({ R, onConfigurarStuds, onExportar, projectName }) {
   if (!R) return null;
   if (R.error) {
@@ -84,7 +133,11 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
       <div className="results-section">
         <div className="results-inner">
           <div className="callout" style={{background:'var(--err-bg)', borderColor:'var(--err-bd)', color:'var(--err)'}}>
-            ⚠ Não foi possível calcular: {R.error === 'missing' ? `campo "${R.missing}" obrigatório` : R.error === 'd_negative' ? 'altura útil resultante ≤ 0 — revise h, cobrimento e bitolas' : R.error}.
+            ⚠ Não foi possível calcular: {R.error === 'missing' ? `campo "${R.missing}" obrigatório`
+              : R.error === 'd_negative' ? 'altura útil resultante ≤ 0 — revise h, cobrimento e bitolas'
+              : R.error === 'abaco' ? 'ábaco incompleto — informe hc maior que h e Lt maior que o diâmetro do pilar'
+              : R.error === 'abertura' ? 'abertura incompleta — informe a distância à face e a largura'
+              : R.error}.
           </div>
         </div>
       </div>
@@ -125,8 +178,9 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
         <div className="summary-strip">
           <Tile name="Contorno C" label="Esmagamento" ok={R.verif1}
             verdict={`τSd = ${fmt(R.tauSd_C)} MPa · τRd2 = ${fmt(R.tauRd2)} MPa`} />
-          <Tile name="Contorno C′" label="Sem armadura" ok={R.verif2}
-            verdict={`τSd = ${fmt(R.tauSd_Cl)} ${R.verif2 ? '≤' : '>'} τRd1 = ${fmt(R.tauRd1)} MPa`} />
+          <Tile name={R.abaco ? `Contorno ${R.abaco.governa}` : 'Contorno C′'}
+            label={R.abaco ? 'Ábaco — mais solicitado' : 'Sem armadura'} ok={R.verif2}
+            verdict={`τSd = ${fmt(R.tauSd_Cl)} ${R.tauSd_Cl <= R.tauRd1 ? '≤' : '>'} τRd1 = ${fmt(R.tauRd1)} MPa`} />
           <Tile name="Contorno C′" label="Com armadura"
             ok={temStuds ? R.verif3 : null}
             verdict={temStuds ? `τSd = ${fmt(R.tauSd_Cl)} ${R.verif3 ? '≤' : '>'} τRd3 = ${fmt(R.tauRd3)} MPa` : 'Configurar armadura'} />
@@ -135,7 +189,13 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
             verdict={R.etapa9 ? `τSd = ${fmt(R.etapa9.tauSd_Cpp)} ${R.etapa9.verif4 ? '≤' : '>'} τRd1 = ${fmt(R.tauRd1)} MPa` : '—'} />
         </div>
 
-        {R.precisaArm && !temStuds && (
+        {R.precisaArm && R.abaco && (
+          <div className="callout" style={{marginBottom: 16}}>
+            ⚠ <b>Contorno do ábaco não atendido.</b> Com ábaco, o app não dimensiona armadura de
+            punção: aumente o ábaco (h<sub>c</sub> ou L<sub>t</sub>), a espessura da laje ou o f<sub>ck</sub>.
+          </div>
+        )}
+        {R.precisaArm && !temStuds && !R.abaco && (
           <div className="callout acao" style={{marginBottom: 16}}>
             <span>⚠ <b>Necessita armadura de punção.</b> O concreto isolado não atende ao contorno C′ — as etapas 8 e 9 só podem ser concluídas depois de definir a armadura.</span>
             <button className="btn btn-primary btn-sm" onClick={onConfigurarStuds}>Configurar armadura →</button>
@@ -159,6 +219,9 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
               ['F<sub>sk</sub>', I.Fsk, 'kN'],
               ['M<sub>k1x</sub>', I.Mxk, 'kN·cm'],
               ['M<sub>k1y</sub>', I.Myk, 'kN·cm'],
+              ...(R.abaco ? [['ábaco: h<sub>c</sub> · L<sub>t</sub> em planta', `${R.abaco.hc} · ${fmt(R.abaco.Lt, 1)}`, 'cm']] : []),
+              ...(R.abertura ? [['abertura: distância · largura', `${R.abertura.dist} · ${R.abertura.larg} (eixo ${R.abertura.dir})`, 'cm']] : []),
+              ...(R.reducao ? [['g + q na laje', I.distrib.gq, 'kN/m²']] : []),
             ]} />
             <div className="muted" style={{fontSize: 12}}>
               Camada externa (mais próxima do topo): direção <b>{R.camadaExterna}</b>. A malha interna
@@ -203,27 +266,95 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
             {R.circ ? (
               <>
                 <Eq lhs={<>u<sub>1</sub></>} sym={<>π·Ø</>} sub={`π·${R.D}`} res={fmt(R.u1)} unit="cm" />
-                <Eq lhs={<>u<sub>2</sub></>} sym={<>π·(Ø + 4d)</>} sub={`π·(${R.D} + 4·${fmt(R.d)})`} res={fmt(R.u2)} unit="cm" />
+                {!R.abaco && (
+                  <Eq lhs={<>u<sub>2</sub></>} sym={<>π·(Ø + 4d)</>} sub={`π·(${R.D} + 4·${fmt(R.d)})`} res={fmt(R.u2_bruto)} unit="cm" />
+                )}
               </>
             ) : (
               <>
                 <Eq lhs={<>u<sub>1</sub></>} sym={<>2·(C<sub>1</sub> + C<sub>2</sub>)</>}
                   sub={`2·(${R.cC1} + ${R.cC2})`} res={fmt(R.u1)} unit="cm" />
-                <Eq lhs={<>u<sub>2</sub></>} sym={<>2·(C<sub>1</sub> + C<sub>2</sub>) + 2π·2d</>}
-                  sub={`${fmt(R.u1)} + 4π·${fmt(R.d)}`} res={fmt(R.u2)} unit="cm" />
+                {!R.abaco && (
+                  <Eq lhs={<>u<sub>2</sub></>} sym={<>2·(C<sub>1</sub> + C<sub>2</sub>) + 2π·2d</>}
+                    sub={`${fmt(R.u1)} + 4π·${fmt(R.d)}`} res={fmt(R.u2_bruto)} unit="cm" />
+                )}
+              </>
+            )}
+            {R.momentoC && (
+              R.circ
+                ? <Eq lhs={<>W<sub>p0</sub></>} sym={<>Ø² (contorno C)</>} sub={`${R.D}²`} res={fmt(R.Wp0x, 0)} unit="cm²" />
+                : <KV rows={[
+                    ['W<sub>p0,x</sub> = C<sub>1</sub>²/2 + C<sub>1</sub>C<sub>2</sub> (contorno C)', fmt(R.Wp0x, 1), 'cm²'],
+                    ['W<sub>p0,y</sub> = C<sub>2</sub>²/2 + C<sub>1</sub>C<sub>2</sub> (contorno C)', fmt(R.Wp0y, 1), 'cm²'],
+                  ]} />
+            )}
+            {R.abertura && (
+              <>
+                <div className="muted" style={{fontSize: 12}}>
+                  Abertura a {R.abertura.dist} cm da face {R.abertura.influi ? '<' : '≥'} 8d = {fmt(R.abertura.lim8d, 1)} cm
+                  {R.abertura.influi
+                    ? ': descarta-se o trecho dos contornos críticos entre as retas tangentes (item 19.5.2.6). O contorno C fica integral.'
+                    : ': a abertura não influi no cálculo.'}
+                </div>
+                {R.abertura.influi && (
+                  <>
+                    <Eq lhs="θ" sym={<>2·arctan((b/2)/x<sub>1</sub>)</>}
+                      sub={`2·arctan(${fmt(R.abertura.larg / 2, 1)}/${fmt(R.abertura.x1, 1)})`}
+                      res={`${fmt(R.abertura.theta * 180 / Math.PI)}° = ${fmt(R.abertura.theta, 4)} rad`} />
+                    {!R.abaco && (
+                      <Eq lhs={<>u<sub>2</sub></>} sym={<>u<sub>2,integral</sub> − Δu</>}
+                        sub={`${fmt(R.u2_bruto)} − ${fmt(R.du2)}`} res={fmt(R.u2)} unit="cm" />
+                    )}
+                    <div className="muted" style={{fontSize: 12}}>
+                      {R.abertura.limitaFaixa
+                        ? 'A abertura fica a menos de 3d da face e corta a faixa de ρ; como ρ = As/(s·d), a taxa não muda.'
+                        : `3d = ${fmt(3 * R.d)} cm < ${R.abertura.dist} cm: a abertura não limita a faixa de ρ.`}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </ResultCard>
 
+          {/* ── Ábaco ── */}
+          {R.abaco && (
+            <ResultCard title="3a — Ábaco: contornos a verificar" cite="item 19.5.2.5">
+              <Eq lhs={<>d<sub>c</sub></>} sym={<>(d<sub>cx</sub> + d<sub>cy</sub>)/2</>}
+                sub={`(${fmt(R.abaco.dcx, 3)} + ${fmt(R.abaco.dcy, 3)})/2`} res={fmt(R.abaco.dc)} unit="cm" />
+              <div className="casos">
+                <div className={"caso" + (R.abaco.caso === 'C2' ? ' ativo' : '')}>
+                  <span className="cond">ℓ<sub>c</sub> ≤ 2(d<sub>c</sub> − d) = {fmt(R.abaco.lim1)}</span>
+                  <span className="val">apenas C′2</span>
+                </div>
+                <div className={"caso" + (R.abaco.caso === 'C1' ? ' ativo' : '')}>
+                  <span className="cond">ℓ<sub>c</sub> ≤ 2d<sub>c</sub> = {fmt(R.abaco.lim2)}</span>
+                  <span className="val">apenas C′1</span>
+                </div>
+                <div className={"caso" + (R.abaco.caso === 'C1C2' ? ' ativo' : '')}>
+                  <span className="cond">ℓ<sub>c</sub> &gt; 2d<sub>c</sub></span>
+                  <span className="val">C′1 e C′2</span>
+                </div>
+              </div>
+              <div className="muted" style={{fontSize: 12}}>
+                ℓ<sub>c</sub> = (L<sub>t</sub> − Ø)/2 = ({fmt(R.abaco.Lt, 1)} − {R.D})/2 = {fmt(R.abaco.lc, 1)} cm.
+                C′2 fica 2d além da borda do ábaco; C′1 fica 2d<sub>c</sub> além da face do pilar
+                {R.abaco.da !== null && <>, com altura útil
+                d<sub>a</sub> = mín(d<sub>c</sub>; d + (ℓ<sub>c</sub> − 2d<sub>c</sub>)/2) = {fmt(R.abaco.da)} cm</>}.
+                O contorno C usa d<sub>c</sub>. W<sub>p</sub> é calculado para o próprio contorno verificado.
+              </div>
+            </ResultCard>
+          )}
+
           {/* ── Etapa 4 ── */}
           <ResultCard title="4 — Tensão resistente da armadura de punção" cite="item 19.4.2">
             <div className="muted" style={{fontSize: 12}}>
-              f<sub>ywd</sub> depende apenas da espessura da laje. São três situações:
+              f<sub>ywd</sub> parte de {R.fywdBase} MPa para {R.tipoArm === 'conector' ? 'conectores' : 'estribos'} e
+              varia com a espessura da laje. São três situações:
             </div>
             <div className="casos">
               <div className={"caso" + (R.fywdCaso === 'menor' ? ' ativo' : '')}>
                 <span className="cond">h &lt; 15 cm</span>
-                <span className="val">f<sub>ywd</sub> = 250 MPa</span>
+                <span className="val">f<sub>ywd</sub> = {R.fywdBase} MPa</span>
               </div>
               <div className={"caso" + (R.fywdCaso === 'interpolado' ? ' ativo' : '')}>
                 <span className="cond">15 cm ≤ h ≤ 35 cm</span>
@@ -236,16 +367,19 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
             </div>
             <div className="muted" style={{fontSize: 12}}>
               Neste caso h = {I.h} cm →{' '}
-              <b>{R.fywdCaso === 'menor' ? 'primeira situação' : R.fywdCaso === 'maior' ? 'terceira situação' : 'segunda situação (interpolação)'}</b>.
+              <b>{R.fywdCaso === 'menor' ? 'primeira situação' : R.fywdCaso === 'maior' ? 'terceira situação'
+                : R.fywdCaso === 'base' ? 'valor-base mantido (aumento com a espessura desligado)' : 'segunda situação (interpolação)'}</b>.
             </div>
-            {R.fywdCaso === 'menor' ? (
-              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>250 MPa, pois h = {I.h} cm &lt; 15 cm</>} res={fmt(R.fywd)} unit="MPa" />
+            {R.fywdCaso === 'base' ? (
+              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>{R.fywdBase} MPa, sem o aumento permitido pelo item 19.4.2</>} res={fmt(R.fywd)} unit="MPa" />
+            ) : R.fywdCaso === 'menor' ? (
+              <Eq lhs={<>f<sub>ywd</sub></>} sym={<>{R.fywdBase} MPa, pois h = {I.h} cm &lt; 15 cm</>} res={fmt(R.fywd)} unit="MPa" />
             ) : R.fywdCaso === 'maior' ? (
               <Eq lhs={<>f<sub>ywd</sub></>} sym={<>435 MPa, pois h = {I.h} cm &gt; 35 cm</>} res={fmt(R.fywd)} unit="MPa" />
             ) : (
               <Eq lhs={<>f<sub>ywd</sub></>}
-                sym={<>250 + (h − 15)·(435 − 250)/(35 − 15)</>}
-                sub={`250 + (${I.h} − 15)·185/20`}
+                sym={<>{R.fywdBase} + (h − 15)·(435 − {R.fywdBase})/(35 − 15)</>}
+                sub={`${R.fywdBase} + (${I.h} − 15)·${435 - R.fywdBase}/20`}
                 res={fmt(R.fywd)} unit="MPa" />
             )}
           </ResultCard>
@@ -279,43 +413,47 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
             <Eq lhs={<>α<sub>v</sub></>} sym={<>1 − f<sub>ck</sub>/250</>}
               sub={`1 − ${I.fck}/250`} res={fmt(R.alphaV, 3)} />
             <Eq lhs={<>τ<sub>Rd2</sub></>} sym={<>0,27·α<sub>v</sub>·f<sub>cd</sub></>}
-              sub={`0,27·${fmt(R.alphaV, 3)}·${fmt(R.fcd)}`} res={fmt(R.tauRd2)} unit="MPa" />
+              sub={`0,27·${fmt(R.alphaV, 3)}·${fmt(R.fcd)}`} res={fmt(R.tauRd2_base)} unit="MPa" />
+            {R.ampliaRd2 && (
+              <Eq lhs={<>τ<sub>Rd2</sub></>} sym={<>1,2·0,27·α<sub>v</sub>·f<sub>cd</sub> (ampliado em 20%)</>}
+                sub={`1,2·${fmt(R.tauRd2_base)}`} res={fmt(R.tauRd2)} unit="MPa" />
+            )}
+            {R.ampliaPedida && !R.ampliaRd2 && (
+              <div className="muted" style={{fontSize: 12}}>
+                Ampliação de 20% não aplicada: existe abertura junto ao pilar.
+              </div>
+            )}
             <div className="muted" style={{fontSize: 12}}>
-              Neste contorno não se considera a influência do momento fletor.
+              τ<sub>Sd</sub> conforme 19.5.2 com u<sub>0</sub> = u<sub>1</sub> no lugar de u
+              {R.abaco && <> e altura útil d<sub>c</sub> = {fmt(R.dC)} cm, na face do pilar sob o ábaco</>}
+              {R.momentoC
+                ? <>; os momentos entram com o W<sub>p</sub> do próprio contorno C.</>
+                : <>; por opção do projetista, sem a parcela dos momentos.</>}
             </div>
-            <Eq lhs={<>τ<sub>Sd</sub></>} sym={<>F<sub>sd</sub>/(u<sub>1</sub>·d)</>}
-              sub={`${fmt(R.Fsd)}/(${fmt(R.u1)}·${fmt(R.d)})`} res={fmt(R.tauSd_C)} unit="MPa" />
+            {R.momentoC ? (
+              <>
+                <Eq lhs={<>τ<sub>Sd</sub></>}
+                  sym={<>F<sub>sd</sub>/(u<sub>1</sub>·d) + k<sub>x</sub>·M<sub>sd1x</sub>/(W<sub>p0,x</sub>·d) + k<sub>y</sub>·M<sub>sd1y</sub>/(W<sub>p0,y</sub>·d)</>}
+                  sub={`${fmt(R.tauSd_C_F, 3)} + ${fmt(R.tauSd_C_Mx, 3)} + ${fmt(R.tauSd_C_My, 3)}`}
+                  res={fmt(R.tauSd_C)} unit="MPa" />
+              </>
+            ) : (
+              <Eq lhs={<>τ<sub>Sd</sub></>} sym={<>F<sub>sd</sub>/(u<sub>1</sub>·d)</>}
+                sub={`${fmt(R.Fsd)}/(${fmt(R.u1)}·${fmt(R.dC)})`} res={fmt(R.tauSd_C)} unit="MPa" />
+            )}
             <Verif ok={R.verif1}
               cond={<>τ<sub>Sd</sub> = {fmt(R.tauSd_C)} {R.verif1 ? '≤' : '>'} τ<sub>Rd2</sub> = {fmt(R.tauRd2)} MPa</>}
               okMsg="Perímetro C, OK!" errMsg="ERRO! Esmagamento da biela" />
           </ResultCard>
 
           {/* ── Etapa 7 ── */}
-          <ResultCard title="7 — Superfície crítica C′ sem armadura de punção" cite="item 19.5.3.2" ok={R.verif2}>
+          <ResultCard title={R.abaco ? '7 — Superfícies críticas do ábaco sem armadura de punção' : '7 — Superfície crítica C′ sem armadura de punção'}
+            cite={R.abaco ? 'itens 19.5.2.5 e 19.5.3.2' : 'item 19.5.3.2'} ok={R.verif2}>
             <KV rows={R.circ ? [
               ['K (pilar circular interno)', fmt(R.kx, 2), ''],
-              ['W<sub>p</sub> = (Ø + 4d)²', fmt(R.Wpx), 'cm²'],
             ] : [
               [`k<sub>x</sub> (C₁/C₂ = ${(R.cC1/R.cC2).toFixed(3)})`, fmt(R.kx, 4), ''],
               [`k<sub>y</sub> (C₂/C₁ = ${(R.cC2/R.cC1).toFixed(3)})`, fmt(R.ky, 4), ''],
-            ]} />
-            {!R.circ && (
-              <>
-                <Eq lhs={<>W<sub>px</sub></>}
-                  sym={<>C<sub>1</sub>²/2 + C<sub>1</sub>C<sub>2</sub> + 4C<sub>2</sub>d + 16d² + 2πC<sub>1</sub>d</>}
-                  res={fmt(R.Wpx)} unit="cm²" />
-                <Eq lhs={<>W<sub>py</sub></>}
-                  sym={<>C<sub>2</sub>²/2 + C<sub>2</sub>C<sub>1</sub> + 4C<sub>1</sub>d + 16d² + 2πC<sub>2</sub>d</>}
-                  res={fmt(R.Wpy)} unit="cm²" />
-              </>
-            )}
-            <Eq lhs={<>τ<sub>Sd</sub></>}
-              sym={<>F<sub>sd</sub>/(u<sub>2</sub>·d) + k<sub>x</sub>·M<sub>sd1x</sub>/(W<sub>px</sub>·d) + k<sub>y</sub>·M<sub>sd1y</sub>/(W<sub>py</sub>·d)</>}
-              res={fmt(R.tauSd_Cl)} unit="MPa" />
-            <KV rows={[
-              ['parcela da força F<sub>sd</sub>', fmt(R.tauSd_Cl_F), 'MPa'],
-              ['parcela de M<sub>sd1x</sub>', fmt(R.tauSd_Cl_Mx), 'MPa'],
-              ['parcela de M<sub>sd1y</sub>', fmt(R.tauSd_Cl_My), 'MPa'],
             ]} />
             {R.temAxial && (
               <>
@@ -325,7 +463,13 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
                 ]} />
                 <Eq lhs={<>σ<sub>cp</sub></>} sym={<>(σ<sub>cp,x</sub> + σ<sub>cp,y</sub>)/2 ≤ 3,5 MPa</>}
                   sub={`(${fmt(R.sigma_cpx, 3)} + ${fmt(R.sigma_cpy, 3)})/2`}
-                  res={fmt(R.sigma_cp, 3)} unit="MPa" />
+                  res={fmt(R.sigma_cp_calc, 3)} unit="MPa" />
+                {R.sigma_cp_desprezado && (
+                  <div className="muted" style={{fontSize: 12}}>
+                    σ<sub>cp,x</sub> ou σ<sub>cp,y</sub> ≤ 1 MPa: o efeito favorável de σ<sub>cp</sub> é desprezado
+                    (item 19.5.3.2) e τ<sub>Rd1</sub> é calculado com σ<sub>cp</sub> = 0.
+                  </div>
+                )}
                 {R.sigma_cp_limitado && (
                   <div className="muted" style={{fontSize: 12}}>
                     Valor calculado {fmt(R.sigma_cp_bruto, 3)} MPa limitado a 3,5 MPa.
@@ -333,29 +477,76 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
                 )}
               </>
             )}
-            <Eq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/d) ; 2)</>}
-              sub={`mín(${fmt(R.fator_d_bruto, 4)} ; 2)`}
-              res={fmt(R.fator_d, 4)} />
-            {R.ke_limitado && (
-              <div className="muted" style={{fontSize: 12}}>
-                O coeficiente de escala calculado ({fmt(R.fator_d_bruto, 4)}) excede o limite da
-                NBR 6118:2023 e foi truncado em 2.
-              </div>
-            )}
-            <Eq lhs={<>τ<sub>Rd1</sub></>}
-              sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
-              sub={`0,13·${fmt(R.fator_d, 4)}·(100·${R.rho.toFixed(5)}·${I.fck})^(1/3)`
-                    + (R.temAxial ? ` + 0,10·${fmt(R.sigma_cp, 3)}` : '')}
-              res={fmt(R.tauRd1, 4)} unit="MPa" />
-            <Verif ok={R.verif2}
-              cond={<>τ<sub>Sd</sub> = {fmt(R.tauSd_Cl)} {R.verif2 ? '≤' : '>'} τ<sub>Rd1</sub> = {fmt(R.tauRd1)} MPa</>}
-              okMsg="Perímetro C′ OK — dispensa armadura de punção!"
-              errMsg="Necessita armadura de punção!" />
-            {!R.verif2 && !temStuds && (
-              <div className="callout acao">
-                <span>Prossiga para a etapa 8: com a armadura definida, o contorno C′ é reverificado contra τ<sub>Rd3</sub>.</span>
-                <button className="btn btn-primary btn-sm" onClick={onConfigurarStuds}>Configurar armadura →</button>
-              </div>
+
+            {R.abaco ? (
+              R.abaco.contornos.map(c => <ContornoAbaco key={c.nome} c={c} R={R} />)
+            ) : (
+              <>
+                {R.circ ? (
+                  <Eq lhs={<>W<sub>p</sub></>} sym={<>(Ø + 4d)²</>}
+                    sub={`(${R.D} + 4·${fmt(R.d)})²`} res={fmt(R.Wpx_bruto)} unit="cm²" />
+                ) : (
+                  <>
+                    <Eq lhs={<>W<sub>px</sub></>}
+                      sym={<>C<sub>1</sub>²/2 + C<sub>1</sub>C<sub>2</sub> + 4C<sub>2</sub>d + 16d² + 2πC<sub>1</sub>d</>}
+                      res={fmt(R.Wpx)} unit="cm²" />
+                    <Eq lhs={<>W<sub>py</sub></>}
+                      sym={<>C<sub>2</sub>²/2 + C<sub>2</sub>C<sub>1</sub> + 4C<sub>1</sub>d + 16d² + 2πC<sub>2</sub>d</>}
+                      res={fmt(R.Wpy)} unit="cm²" />
+                  </>
+                )}
+                {R.abertura?.influi && (
+                  <div className="muted" style={{fontSize: 12}}>
+                    Sem o trecho entre as tangentes: u<sub>2</sub> = {fmt(R.u2)} cm, W<sub>px</sub> = {fmt(R.Wpx)} e
+                    W<sub>py</sub> = {fmt(R.Wpy)} cm² (W<sub>p</sub> = ∫|e|·dℓ só sobre o contorno que resta).
+                  </div>
+                )}
+                {R.reducao && (
+                  <>
+                    <div className="muted" style={{fontSize: 12}}>
+                      Redução de F<sub>Sd</sub> pela carga distribuída aplicada dentro de C′ (item 19.5.2.1):
+                    </div>
+                    <Eq lhs={<>ΔF</>} sym={<>p<sub>d</sub>·A<sub>C′</sub></>}
+                      sub={`${fmt(R.reducao.pd)}·${fmt(R.reducao.area, 3)}`} res={fmt(R.reducao.dF)} unit="kN" />
+                    <Eq lhs={<>F<sub>Sd,red</sub></>} sym={<>F<sub>Sd</sub> − ΔF</>}
+                      sub={`${fmt(Math.abs(R.Fsd))} − ${fmt(R.reducao.dF)}`} res={fmt(R.reducao.Fsd_red)} unit="kN" />
+                  </>
+                )}
+                <Eq lhs={<>τ<sub>Sd</sub></>}
+                  sym={<>F<sub>sd{R.reducao ? ',red' : ''}</sub>/(u<sub>2</sub>·d) + k<sub>x</sub>·M<sub>sd1x</sub>/(W<sub>px</sub>·d) + k<sub>y</sub>·M<sub>sd1y</sub>/(W<sub>py</sub>·d)</>}
+                  sub={`${fmt(R.tauSd_Cl_F, 3)} + ${fmt(R.tauSd_Cl_Mx, 3)} + ${fmt(R.tauSd_Cl_My, 3)}`}
+                  res={fmt(R.tauSd_Cl, 3)} unit="MPa" />
+                {R.reducao && (
+                  <div className="muted" style={{fontSize: 12}}>
+                    Sem a redução, τ<sub>Sd</sub> = {fmt(R.reducao.tauSd_sem, 3)} MPa
+                    {R.reducao.tauSd_sem > R.tauRd1 && R.verif2 ? ' — não passaria; a redução muda a conclusão.' : '.'}
+                  </div>
+                )}
+                <Eq lhs={<>k<sub>e</sub></>} sym={<>mín(1 + √(20/d) ; 2)</>}
+                  sub={`mín(${fmt(R.fator_d_bruto, 4)} ; 2)`}
+                  res={fmt(R.fator_d, 4)} />
+                {R.ke_limitado && (
+                  <div className="muted" style={{fontSize: 12}}>
+                    O coeficiente de escala calculado ({fmt(R.fator_d_bruto, 4)}) excede o limite da
+                    NBR 6118:2023 e foi truncado em 2.
+                  </div>
+                )}
+                <Eq lhs={<>τ<sub>Rd1</sub></>}
+                  sym={<>0,13·k<sub>e</sub>·(100·ρ·f<sub>ck</sub>)<sup>1/3</sup>{R.temAxial && <> + 0,10·σ<sub>cp</sub></>}</>}
+                  sub={`0,13·${fmt(R.fator_d, 4)}·(100·${R.rho.toFixed(5)}·${I.fck})^(1/3)`
+                        + (R.temAxial ? ` + 0,10·${fmt(R.sigma_cp, 3)}` : '')}
+                  res={fmt(R.tauRd1, 4)} unit="MPa" />
+                <Verif ok={R.verif2}
+                  cond={<>τ<sub>Sd</sub> = {fmt(R.tauSd_Cl, 3)} {R.verif2 ? '≤' : '>'} τ<sub>Rd1</sub> = {fmt(R.tauRd1, 3)} MPa</>}
+                  okMsg="Perímetro C′ OK — dispensa armadura de punção!"
+                  errMsg="Necessita armadura de punção!" />
+                {!R.verif2 && !temStuds && (
+                  <div className="callout acao">
+                    <span>Prossiga para a etapa 8: com a armadura definida, o contorno C′ é reverificado contra τ<sub>Rd3</sub>.</span>
+                    <button className="btn btn-primary btn-sm" onClick={onConfigurarStuds}>Configurar armadura →</button>
+                  </div>
+                )}
+              </>
             )}
           </ResultCard>
 
@@ -409,12 +600,16 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
                   <ConfiguracaoAdotada R={R} />
                 </div>
                 <Verif ok={R.studs.se_ok}
-                  cond={<>s<sub>e</sub> real na última camada = {fmt(R.studs.se_real)} {R.studs.se_ok ? '≤' : '>'} 2·d = {fmt(R.se_lim)} cm</>}
+                  cond={<>s<sub>e</sub> real na última camada{R.circ ? ' (ao longo do contorno)' : ''} = {fmt(R.studs.se_real)} {R.studs.se_ok ? '≤' : '>'} 2·d = {fmt(R.se_lim)} cm</>}
                   okMsg="Espaçamento tangencial OK!"
                   errMsg="Aumente n_conec para reduzir o espaçamento tangencial." />
               </>
             ) : (
-              <div className="muted">Defina a armadura de punção na etapa 5 do formulário para concluir esta verificação.</div>
+              <div className="muted">
+                {R.abaco
+                  ? 'Com ábaco, o app não dimensiona armadura de punção: a verificação se encerra nos contornos do ábaco.'
+                  : 'Defina a armadura de punção na etapa 5 do formulário para concluir esta verificação.'}
+              </div>
             )}
           </ResultCard>
 
@@ -438,9 +633,16 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
                     </div>
                   </>
                 ) : (
-                  <Eq lhs={<>u<sub>3</sub></>} sym={<>u<sub>1</sub> + 2π·(2d + p)</>}
-                    sub={`${fmt(R.u1)} + 2π·(2·${fmt(R.d)} + ${fmt(R.etapa9.p)})`}
-                    res={fmt(R.etapa9.u3)} unit="cm" />
+                  <>
+                    <Eq lhs={<>u<sub>3</sub></>} sym={<>u<sub>1</sub> + 2π·(2d + p)</>}
+                      sub={`${fmt(R.u1)} + 2π·(2·${fmt(R.d)} + ${fmt(R.etapa9.p)})`}
+                      res={fmt(R.etapa9.u3_bruto)} unit="cm" />
+                    {R.etapa9.du3 > 0 && (
+                      <Eq lhs={<>u<sub>3</sub></>} sym={<>u<sub>3,integral</sub> − Δu (abertura)</>}
+                        sub={`${fmt(R.etapa9.u3_bruto)} − ${fmt(R.etapa9.du3)}`}
+                        res={fmt(R.etapa9.u3)} unit="cm" />
+                    )}
+                  </>
                 )}
                 <KV rows={R.circ ? [
                   ['W<sub>p,C″</sub> = (Ø + 4d + 2p)²', fmt(R.etapa9.WpxCpp), 'cm²'],
@@ -466,28 +668,31 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
             <ResultCard title="10 — Colapso progressivo" cite="item 19.5.4"
               ok={R.colapso.incompleto ? null : R.colapso.verif5}>
               <div className="muted" style={{fontSize: 12}}>
-                Se a ligação laje–pilar romper por punção, a armadura de flexão inferior que
-                atravessa o contorno C precisa suspender a força sozinha. A face do pilar com
-                menos aço governa, e essas barras devem estar ancoradas além do contorno.
+                A armadura de flexão inferior que atravessa o contorno C deve atender
+                f<sub>yd</sub>·A<sub>s,ccp</sub> ≥ 1,5·F<sub>Sd</sub>, com F<sub>Sd</sub> calculado com γ<sub>f</sub> = 1,2,
+                e estar ancorada além do contorno C′. Cada barra contínua que atravessa o pilar é
+                contada uma vez, a favor da segurança.
               </div>
               {R.colapso.incompleto ? (
                 <div className="muted">Informe bitola e espaçamento nas duas direções na etapa 4.</div>
               ) : (
                 <>
-                  <Eq lhs={<>A<sub>s,nec</sub></>} sym={<>F<sub>Sd</sub>/f<sub>yd</sub></>}
-                    sub={`${fmt(Math.abs(R.Fsd))}/${fmt(R.fyd/10, 3)}`}
+                  <Eq lhs={<>F<sub>Sd</sub></>} sym={<>1,2·F<sub>Sk</sub></>}
+                    sub={`1,2·${fmt(Math.abs(I.Fsk))}`} res={fmt(R.colapso.Fsd_ccp)} unit="kN" />
+                  <Eq lhs={<>A<sub>s,ccp,nec</sub></>} sym={<>1,5·F<sub>Sd</sub>/f<sub>yd</sub></>}
+                    sub={`1,5·${fmt(R.colapso.Fsd_ccp)}/${fmt(R.fyd/10, 3)}`}
                     res={fmt(R.colapso.As_nec)} unit="cm²" />
                   <KV rows={[
-                    [`barras horizontais (dir. x) — Ø${R.colapso.phi_h} c/ ${fmt(R.colapso.s_h)} cm, face de ${fmt(R.colapso.largH)} cm`,
+                    [`barras em x — Ø${R.colapso.phi_h} c/ ${fmt(R.colapso.s_h)} cm, sobre ${fmt(R.colapso.largH)} cm`,
                       `${fmt(R.colapso.nh_exato, 2)} barras · ${fmt(R.colapso.As_h)}`, 'cm²'],
-                    [`barras verticais (dir. y) — Ø${R.colapso.phi_v} c/ ${fmt(R.colapso.s_v)} cm, face de ${fmt(R.colapso.largV)} cm`,
+                    [`barras em y — Ø${R.colapso.phi_v} c/ ${fmt(R.colapso.s_v)} cm, sobre ${fmt(R.colapso.largV)} cm`,
                       `${fmt(R.colapso.nv_exato, 2)} barras · ${fmt(R.colapso.As_v)}`, 'cm²'],
-                    ['soma das quatro faces (informativo)', fmt(R.colapso.As_total), 'cm²'],
+                    ['A<sub>s,ccp</sub> (soma das duas direções)', fmt(R.colapso.As_ccp), 'cm²'],
                   ]} />
                   <Verif ok={R.colapso.verif5}
-                    cond={<>ΣA<sub>s</sub>·f<sub>yd</sub> = {fmt(R.colapso.Rd)} {R.colapso.verif5 ? '≥' : '<'} F<sub>Sd</sub> = {fmt(Math.abs(R.Fsd))} kN</>}
+                    cond={<>A<sub>s,ccp</sub> = {fmt(R.colapso.As_ccp)} {R.colapso.verif5 ? '≥' : '<'} {fmt(R.colapso.As_nec)} cm²</>}
                     okMsg="Proteção contra colapso progressivo atendida!"
-                    errMsg={`Insuficiente — a face crítica (direção ${R.colapso.direcaoGov === 'h' ? 'x' : 'y'}) tem ${fmt(R.colapso.As_gov)} cm² e precisa de ${fmt(R.colapso.As_nec)} cm².`} />
+                    errMsg={`Insuficiente — faltam ${fmt(R.colapso.As_nec - R.colapso.As_ccp)} cm² de armadura inferior.`} />
                 </>
               )}
             </ResultCard>
@@ -499,7 +704,9 @@ function Results({ R, onConfigurarStuds, onExportar, projectName }) {
               <ResumoItem n="verif1" ok={R.verif1}
                 txt={R.verif1 ? 'Perímetro C, OK!' : 'ERRO!! Esmagamento'} />
               <ResumoItem n="verif2" ok={R.verif2}
-                txt={R.verif2 ? 'Perímetro C′ OK!' : 'Necessita armadura de punção!!'} />
+                txt={R.abaco
+                  ? (R.verif2 ? `Contornos do ábaco (${R.abaco.contornos.map(c => c.nome).join(' e ')}) OK!` : `ERRO! Contorno ${R.abaco.governa} não atende!!`)
+                  : (R.verif2 ? 'Perímetro C′ OK!' : 'Necessita armadura de punção!!')} />
               <ResumoItem n="verif3" ok={temStuds ? R.verif3 : null}
                 txt={!temStuds ? 'Aguardando definição da armadura'
                   : R.verif3 ? "Perímetro C′ com armadura de punção, Ok!" : 'ERRO! Armadura de punção insuficiente!!'} />

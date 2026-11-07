@@ -18,6 +18,8 @@ const DXF_LAYERS = [
   ['CONTORNO-C-LINHA', 5, 'DASHED'],
   ['CONTORNO-C-DUAS',  1, 'DASHED'],
   ['ARMADURA-PUNCAO',  2, 'CONTINUOUS'],
+  ['ABACO',            8, 'CONTINUOUS'],
+  ['ABERTURA',         1, 'CONTINUOUS'],
   ['EIXOS',            8, 'DASHED'],
   ['COTAS',            3, 'CONTINUOUS'],
   ['TEXTO',            7, 'CONTINUOUS'],
@@ -121,7 +123,12 @@ function gerarDXF(R, nome) {
   const alt = Math.max(1.5, d * 0.19);     // altura de texto proporcional ao desenho
   const meiaX = circ ? D / 2 : C1 / 2;     // meia-largura do pilar
   const meiaY = circ ? D / 2 : C2 / 2;
-  const offMax = offCpp != null ? offCpp : offCl;
+  const cap = R.abaco, ab = R.abertura;
+  // com ábaco, os contornos críticos são C′1 e/ou C′2: [base1, base2, afastamento, nome]
+  const contsCl = cap ? cap.contornos.map(c => [c.b1, c.b2, c.a, c.nome]) : [[C1, C2, offCl, "C'"]];
+  const extCl = Math.max(...contsCl.map(c => Math.max(c[0], c[1]) / 2 + c[2])) - Math.max(meiaX, meiaY);
+  let offMax = Math.max(offCpp != null ? offCpp : 0, extCl);
+  if (ab) offMax = Math.max(offMax, ab.x1 + ab.larg * 0.6 - Math.max(meiaX, meiaY));
 
   // ── eixos de simetria ───────────────────────────────────
   const ext = Math.max(meiaX, meiaY) + offMax + 6 * alt;
@@ -139,8 +146,31 @@ function gerarDXF(R, nome) {
     g.linha(-a, b, -a, -b, 'PILAR');
   }
 
+  // ── ábaco ──────────────────────────────────────────────
+  // quadrado em planta, Lt × Lt (no pilar circular C1 = C2 = Ø)
+  if (cap) {
+    const a = C1 / 2 + cap.lc, b = C2 / 2 + cap.lc;
+    g.linha(-a, -b, a, -b, 'ABACO'); g.linha(a, -b, a, b, 'ABACO');
+    g.linha(a, b, -a, b, 'ABACO');   g.linha(-a, b, -a, -b, 'ABACO');
+  }
+
   // ── contornos críticos ──────────────────────────────────
-  dxfContorno(g, circ, D, C1, C2, offCl, 'CONTORNO-C-LINHA');
+  contsCl.forEach(c => dxfContorno(g, circ, c[0], c[0], c[1], c[2], 'CONTORNO-C-LINHA'));
+
+  // ── abertura: face próxima, contorno indicativo e retas tangentes ──
+  if (ab) {
+    const ux = Math.cos(ab.phi0), uy = Math.sin(ab.phi0), vx = -uy, vy = ux;
+    const prof = Math.min(ab.larg * 0.6, 14);   // profundidade radial só indicativa
+    const p1 = [ux * ab.x1 + vx * ab.larg / 2, uy * ab.x1 + vy * ab.larg / 2];
+    const p2 = [ux * ab.x1 - vx * ab.larg / 2, uy * ab.x1 - vy * ab.larg / 2];
+    const q1 = [p1[0] + ux * prof, p1[1] + uy * prof], q2 = [p2[0] + ux * prof, p2[1] + uy * prof];
+    g.linha(p1[0], p1[1], p2[0], p2[1], 'ABERTURA');
+    g.linha(p1[0], p1[1], q1[0], q1[1], 'ABERTURA');
+    g.linha(p2[0], p2[1], q2[0], q2[1], 'ABERTURA');
+    g.linha(0, 0, p1[0], p1[1], 'ABERTURA');
+    g.linha(0, 0, p2[0], p2[1], 'ABERTURA');
+    g.texto(q1[0], q1[1] + alt, alt, 'ABERTURA', 'TEXTO');
+  }
   if (offCpp != null) dxfContorno(g, circ, D, C1, C2, offCpp, 'CONTORNO-C-DUAS');
 
   // ── armadura de punção ──────────────────────────────────
@@ -179,7 +209,7 @@ function gerarDXF(R, nome) {
   const xEsq = xCota - passo;                  // extremo esquerdo ocupado
 
   // ── rótulos dos contornos ───────────────────────────────
-  g.texto(meiaX + offCl + alt, meiaY + offCl - alt, alt, "CONTORNO C'", 'TEXTO');
+  contsCl.forEach(c => g.texto(c[0] / 2 + c[2] + alt, c[1] / 2 + c[2] - alt, alt, 'CONTORNO ' + c[3], 'TEXTO'));
   if (offCpp != null) {
     g.texto(meiaX + offCpp + alt, meiaY + offCpp - alt, alt, 'CONTORNO C"', 'TEXTO');
   }
@@ -199,7 +229,12 @@ function gerarDXF(R, nome) {
     ? `PILAR CIRCULAR  D = ${D}   h laje = ${R.inputs.h}   fck = ${R.inputs.fck} MPa`
     : `PILAR ${C1} x ${C2}   h laje = ${R.inputs.h}   fck = ${R.inputs.fck} MPa`);
   nota(`dx = ${R.dx.toFixed(2)}   dy = ${R.dy.toFixed(2)}   d = ${d.toFixed(2)}   rho = ${R.rho.toFixed(5)}`);
-  nota(`u1 = ${u1.toFixed(2)}   u2 = ${u2.toFixed(2)}` + (etapa9 ? `   u3 = ${etapa9.u3.toFixed(2)}` : ''));
+  nota(`u1 = ${u1.toFixed(2)}   ` + (cap
+    ? cap.contornos.map(c => `u(${c.nome}) = ${c.u.toFixed(2)}`).join('   ')
+    : `u2 = ${u2.toFixed(2)}`) + (etapa9 ? `   u3 = ${etapa9.u3.toFixed(2)}` : ''));
+  if (cap) nota(`ABACO hc = ${cap.hc}   Lt = ${cap.Lt.toFixed(1)}   lc = ${cap.lc.toFixed(1)}   dc = ${cap.dc.toFixed(2)}` + (cap.da !== null ? `   da = ${cap.da.toFixed(2)}` : ''));
+  if (ab) nota(`ABERTURA a ${ab.dist} da face, largura ${ab.larg} (eixo ${ab.dir})   theta = ${(ab.theta * 180 / Math.PI).toFixed(2)}°`
+    + (ab.influi ? '   trecho descontado' : '   nao influi (>= 8d)'));
   nota(`Fsd = ${R.Fsd.toFixed(1)} kN   Msd1x = ${R.Msd1x.toFixed(0)}   Msd1y = ${R.Msd1y.toFixed(0)} kN.cm`);
   y -= dl * 0.5;
 
@@ -212,9 +247,16 @@ function gerarDXF(R, nome) {
 
   nota('VERIFICACOES:');
   nota(`  contorno C   : tauSd = ${R.tauSd_C.toFixed(2)} / tauRd2 = ${R.tauRd2.toFixed(2)} MPa  -> ${R.verif1 ? 'OK' : 'NAO PASSA'}`);
-  nota(`  contorno C'  : tauSd = ${R.tauSd_Cl.toFixed(2)} / tauRd1 = ${R.tauRd1.toFixed(2)} MPa  -> ${R.verif2 ? 'OK' : 'EXIGE ARMADURA'}`);
+  if (cap) {
+    cap.contornos.forEach(c => nota(`  contorno ${c.nome} : tauSd = ${c.tauSd.toFixed(2)} / tauRd1 = ${c.tauRd1.toFixed(2)} MPa  -> ${c.ok ? 'OK' : 'NAO PASSA'}`));
+  } else {
+    nota(`  contorno C'  : tauSd = ${R.tauSd_Cl.toFixed(2)} / tauRd1 = ${R.tauRd1.toFixed(2)} MPa  -> ${R.verif2 ? 'OK' : 'EXIGE ARMADURA'}`);
+  }
   if (temArm) {
     nota(`  contorno C'  : tauSd = ${R.tauSd_Cl.toFixed(2)} / tauRd3 = ${R.tauRd3.toFixed(2)} MPa  -> ${R.verif3 ? 'OK' : 'ARMADURA INSUFICIENTE'}`);
+  }
+  if (R.colapso && !R.colapso.incompleto) {
+    nota(`  colapso      : As,ccp = ${R.colapso.As_ccp.toFixed(2)} / nec = ${R.colapso.As_nec.toFixed(2)} cm2  -> ${R.colapso.verif5 ? 'OK' : 'INSUFICIENTE'}`);
   }
   if (etapa9) {
     nota(`  contorno C"  : tauSd = ${etapa9.tauSd_Cpp.toFixed(2)} / tauRd1 = ${R.tauRd1.toFixed(2)} MPa  -> ${etapa9.verif4 ? 'OK' : 'NAO PASSA'}`);

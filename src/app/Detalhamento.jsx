@@ -340,41 +340,99 @@ function FigMomentos({ R }) {
 }
 
 // ============================================================
-//  4) Contorno crítico C′ afastado 2d
+//  4) Contornos de controle: C e C′ — ou, com ábaco, C′1/C′2 —
+//     e a abertura próxima com as retas tangentes
 // ============================================================
 function FigPerimetroCl({ R }) {
   const id = 'f3';
-  const W = 560, H = 300;
+  const W = 560, H = 320;
   const { circ, D, cC1: C1, cC2: C2, d, u1, u2 } = R;
-  const extX = (circ ? D / 2 : C1 / 2) + 2 * d;
-  const extY = (circ ? D / 2 : C2 / 2) + 2 * d;
-  const S = Math.min((W - 150) / (2 * extX), (H - 130) / (2 * extY));
-  const cx = W / 2, cy = H / 2 + 8;
-  const X = cm => cx + cm * S, Y = cm => cy + cm * S;
+  const cap = R.abaco, ab = R.abertura;
 
+  // contornos a desenhar: [base1, base2, afastamento, rótulo, cor]
+  const conts = cap
+    ? cap.contornos.map(c => [c.b1, c.b2, c.a, c.nome, c.nome === 'C′1' ? LARANJA : AZUL])
+    : [[C1, C2, 2 * d, 'C′', AZUL]];
+  const meia = (b, a) => b / 2 + a;
+  let extX = Math.max(...conts.map(c => meia(c[0], c[2])));
+  let extY = Math.max(...conts.map(c => meia(c[1], c[2])));
+  if (ab) {
+    const alcance = ab.x1 + Math.min(ab.larg * 0.6, 14) + 10;
+    if (ab.dir === '+x' || ab.dir === '-x') extX = Math.max(extX, alcance); else extY = Math.max(extY, alcance);
+  }
+  const S = Math.min((W - 120) / (2 * extX), (H - 110) / (2 * extY));
+  const cx = W / 2, cy = H / 2 + 6;
+  // y para baixo no SVG; o eixo +y do cálculo aponta para cima
+  const X = cm => cx + cm * S, Y = cm => cy - cm * S;
+
+  const contorno = (b1, b2, a, cor, k) => circ
+    ? <circle key={k} cx={cx} cy={cy} r={meia(b1, a) * S} fill="none" stroke={cor} strokeWidth="1.3" strokeDasharray="6 4" />
+    : <path key={k} d={contornoD(false, 0, b1, b2, a, X, cm => cy + cm * S, S)} fill="none" stroke={cor} strokeWidth="1.3" strokeDasharray="6 4" />;
+
+  // abertura: face próxima (perpendicular ao eixo) e tangentes a partir do centro
+  let desenhoAbertura = null;
+  if (ab) {
+    const ang = ab.phi0, ux = Math.cos(ang), uy = Math.sin(ang);
+    const vx = -uy, vy = ux;                       // direção tangencial
+    const p1 = [ux * ab.x1 + vx * ab.larg / 2, uy * ab.x1 + vy * ab.larg / 2];
+    const p2 = [ux * ab.x1 - vx * ab.larg / 2, uy * ab.x1 - vy * ab.larg / 2];
+    // a profundidade radial não é dado do cálculo: desenho apenas indicativo
+    const prof = Math.min(ab.larg * 0.6, 14);
+    const q1 = [p1[0] + ux * prof, p1[1] + uy * prof], q2 = [p2[0] + ux * prof, p2[1] + uy * prof];
+    const cor = ab.influi ? VERM : SUAVE;
+    // trecho descartado de cada contorno circular
+    const arcos = ab.influi && circ ? conts.map((c, i) => {
+      const r = meia(c[0], c[2]) * S;
+      const a0 = ang - ab.theta / 2, a1 = ang + ab.theta / 2;
+      return <path key={`arc${i}`} d={`M ${cx + r * Math.cos(a0)} ${cy - r * Math.sin(a0)} A ${r} ${r} 0 0 0 ${cx + r * Math.cos(a1)} ${cy - r * Math.sin(a1)}`}
+        fill="none" stroke={VERM} strokeWidth="3.2" opacity="0.55" />;
+    }) : null;
+    desenhoAbertura = (
+      <g>
+        <path d={`M ${X(p1[0])} ${Y(p1[1])} L ${X(q1[0])} ${Y(q1[1])} L ${X(q2[0])} ${Y(q2[1])} L ${X(p2[0])} ${Y(p2[1])} Z`}
+          fill={`url(#${id}-hachura)`} stroke={TRACO} strokeWidth="1" strokeDasharray="4 3" />
+        <line x1={cx} y1={cy} x2={X(p1[0])} y2={Y(p1[1])} stroke={cor} strokeWidth="0.8" strokeDasharray="3 3" />
+        <line x1={cx} y1={cy} x2={X(p2[0])} y2={Y(p2[1])} stroke={cor} strokeWidth="0.8" strokeDasharray="3 3" />
+        {arcos}
+        <text x={X((q1[0] + q2[0]) / 2) + 4} y={Y((q1[1] + q2[1]) / 2) - 6} fontSize="9" fontFamily="Inter" fill={TEXTO}>abertura</text>
+      </g>
+    );
+  }
+
+  const ultimo = conts[conts.length - 1];
+  const ehC1 = ultimo[3] === 'C′1';
+  const baseCota = ultimo[1] / 2;            // C′1: face do pilar; C′2: borda do ábaco
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
       <Defs id={id} />
       <text x={W / 2} y="16" textAnchor="middle" fontSize="11" fontFamily="Inter" fill={SUAVE}>
-        Contornos de controle C e C′
+        {cap ? 'Ábaco e contornos críticos' : 'Contornos de controle C e C′'}
       </text>
 
-      {circ
-        ? <circle cx={cx} cy={cy} r={(D / 2 + 2 * d) * S} fill="none" stroke={AZUL} strokeWidth="1.3" strokeDasharray="6 4" />
-        : <path d={contornoD(circ, D, C1, C2, 2 * d, X, Y, S)} fill="none" stroke={AZUL} strokeWidth="1.3" strokeDasharray="6 4" />}
+      {/* ábaco quadrado em planta, Lt × Lt (no pilar circular C1 = C2 = Ø) */}
+      {cap && (
+        <rect x={X(-C1 / 2 - cap.lc)} y={Y(C2 / 2 + cap.lc)} width={(C1 + 2 * cap.lc) * S} height={(C2 + 2 * cap.lc) * S}
+          fill="#eef1f5" stroke={TRACO} strokeWidth="1" />
+      )}
+      {conts.map((c, i) => contorno(c[0], c[1], c[2], c[4], `c${i}`))}
       {circ
         ? <circle cx={cx} cy={cy} r={(D / 2) * S} fill={CINZA} stroke={TRACO} strokeWidth="1.2" />
-        : <rect x={X(-C1 / 2)} y={Y(-C2 / 2)} width={C1 * S} height={C2 * S} fill={CINZA} stroke={TRACO} strokeWidth="1.2" />}
+        : <rect x={X(-C1 / 2)} y={Y(C2 / 2)} width={C1 * S} height={C2 * S} fill={CINZA} stroke={TRACO} strokeWidth="1.2" />}
+      {desenhoAbertura}
 
       <text x={cx} y={cy + 4} textAnchor="middle" fontSize="9" fontFamily="Inter" fill={TEXTO}>Pilar</text>
-      <text x={X(0) + (extX) * S + 6} y={Y(-extY) + 4} fontSize="9" fontFamily={MONO} fill={AZUL}>C′</text>
+      {conts.map((c, i) => (
+        <text key={`t${i}`} x={cx + 5} y={Y(meia(c[1], c[2])) - 4}
+          fontSize="9" fontFamily={MONO} fill={c[4]}>{c[3]}</text>
+      ))}
 
-      {/* 2d à esquerda e abaixo */}
-      <CotaH id={id} x1={X(-C1 / 2 - 2 * d)} x2={X(-C1 / 2)} y={cy} txt={`2d`} dy={-5} />
-      <CotaV id={id} x={cx} y1={Y(C2 / 2)} y2={Y(C2 / 2 + 2 * d)} txt={`2d = ${n2(2 * d)}`} dx={6} />
+      {/* afastamento do contorno mais externo, abaixo do pilar */}
+      <CotaV id={id} x={cx + 16} y1={cy + baseCota * S} y2={cy + (baseCota + ultimo[2]) * S}
+        txt={ehC1 ? `2dc = ${n2(ultimo[2])}` : `2d = ${n2(2 * d)}`} dx={6} />
 
       <text x={W / 2} y={H - 8} textAnchor="middle" fontSize="9" fontFamily={MONO} fill={SUAVE}>
-        u₁ = {n2(u1)} cm · u₂ = {n2(u2)} cm
+        u₁ = {n2(u1)} cm · {cap ? cap.contornos.map(c => `${c.nome}: u = ${n2(c.u)} cm`).join(' · ') : `u₂ = ${n2(u2)} cm`}
+        {ab && ab.influi ? ` · θ = ${n2(ab.theta * 180 / Math.PI)}°` : ''}
       </text>
     </svg>
   );
@@ -544,15 +602,19 @@ function Detalhamento({ R }) {
     ['2', 'Valores de cálculo',
       `Majoração das ações por γf = 1,4 e minoração das resistências por γc = 1,4 e γs = 1,15: Fsd = ${n2(R.Fsd)} kN, fcd = ${n2(R.fcd)} MPa.`],
     ['3', 'Perímetros de controle',
-      `Contorno C no perímetro do pilar (u₁ = ${n2(R.u1)} cm) e contorno C′ afastado 2d (u₂ = ${n2(R.u2)} cm).`],
+      R.abaco
+        ? `Contorno C no perímetro do pilar (u₁ = ${n2(R.u1)} cm). Ábaco com ℓc = ${n2(R.abaco.lc)} cm e dc = ${n2(R.abaco.dc)} cm: verificar ${R.abaco.contornos.map(c => c.nome).join(' e ')} (item 19.5.2.5).`
+        : `Contorno C no perímetro do pilar (u₁ = ${n2(R.u1)} cm) e contorno C′ afastado 2d (u₂ = ${n2(R.u2)} cm${R.abertura?.influi ? `, já sem o trecho de ${n2(R.du2)} cm entre as tangentes à abertura` : ''}).`],
     ['4', 'Tensão resistente da armadura',
-      `fywd em função da espessura: ${R.fywdCaso === 'menor' ? 'h < 15 cm → 250 MPa' : R.fywdCaso === 'maior' ? 'h > 35 cm → 435 MPa' : `15 ≤ h ≤ 35 cm → interpolação → ${n2(R.fywd)} MPa`}.`],
+      `fywd em função da espessura: ${R.fywdCaso === 'menor' ? `h < 15 cm → ${R.fywdBase} MPa` : R.fywdCaso === 'maior' ? 'h > 35 cm → 435 MPa' : `15 ≤ h ≤ 35 cm → interpolação → ${n2(R.fywd)} MPa`}.`],
     ['5', 'Taxa de armadura passiva',
       `ρ medido na faixa do pilar acrescida de 3d de cada lado: ρx = ${R.rox.toFixed(5)}, ρy = ${R.roy.toFixed(5)}, ρ = ${R.rho.toFixed(5)}.`],
     ['6', 'Superfície C — compressão diagonal',
-      `Verifica o esmagamento da biela junto ao pilar: τSd = ${n2(R.tauSd_C)} MPa contra τRd2 = ${n2(R.tauRd2)} MPa. ${R.verif1 ? 'Atende.' : 'NÃO atende — aumentar a seção do pilar ou fck.'}`],
-    ['7', 'Superfície C′ sem armadura',
-      `Inclui o efeito dos momentos via K e Wp: τSd = ${n2(R.tauSd_Cl)} MPa contra τRd1 = ${n2(R.tauRd1)} MPa. ${R.verif2 ? 'O concreto sozinho resiste — dispensa armadura.' : 'Excedido: a ligação exige armadura de punção.'}`],
+      `Verifica o esmagamento da biela junto ao pilar${R.momentoC ? ', com a parcela dos momentos' : ''}: τSd = ${n2(R.tauSd_C)} MPa contra τRd2 = ${n2(R.tauRd2)} MPa${R.ampliaRd2 ? ' (ampliado em 20%)' : ''}. ${R.verif1 ? 'Atende.' : 'NÃO atende — aumentar a seção do pilar ou fck.'}`],
+    ['7', R.abaco ? 'Contornos do ábaco' : 'Superfície C′ sem armadura',
+      R.abaco
+        ? R.abaco.contornos.map(c => `${c.nome}: τSd = ${n2(c.tauSd)} MPa contra τRd1 = ${n2(c.tauRd1)} MPa (${c.ok ? 'atende' : 'NÃO atende'}).`).join(' ')
+        : `Inclui o efeito dos momentos via K e Wp${R.reducao ? ` e a redução de FSd pela carga distribuída (ΔF = ${n2(R.reducao.dF)} kN)` : ''}: τSd = ${n2(R.tauSd_Cl)} MPa contra τRd1 = ${n2(R.tauRd1)} MPa. ${R.verif2 ? 'O concreto sozinho resiste — dispensa armadura.' : 'Excedido: a ligação exige armadura de punção.'}`],
     ['8', 'Superfície C′ com armadura',
       temStuds
         ? `Com ${R.studs.nconec} conectores Ø${R.studs.phi} mm por camada em ${R.studs.ncam} camadas, τRd3 = ${n2(R.tauRd3)} MPa contra τSd = ${n2(R.tauSd_Cl)} MPa. ${R.verif3 ? 'Atende.' : 'NÃO atende — reforçar a armadura.'}`
@@ -601,7 +663,7 @@ function Detalhamento({ R }) {
             <FigMomentos R={R} />
           </FigCard>
 
-          <FigCard titulo="Contornos C e C′" cite="item 19.5.2.1">
+          <FigCard titulo={R.abaco ? 'Ábaco e contornos críticos' : 'Contornos C e C′'} cite={R.abaco ? 'item 19.5.2.5' : R.abertura ? 'item 19.5.2.6' : 'item 19.5.2.1'}>
             <FigPerimetroCl R={R} />
           </FigCard>
 
